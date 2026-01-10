@@ -1,0 +1,137 @@
+// ============================================
+// Momento - Time Management & Recording System
+// ============================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// Models
+// ============================================
+
+model User {
+  id          String   @id @default(uuid())
+  firebaseUid String   @unique @map("firebase_uid") @db.VarChar(128)
+  nickname    String   @db.VarChar(50)
+  profileEmoji String? @map("profile_emoji") @db.VarChar(10)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  createdProjects  Project[]        @relation("ProjectCreator")
+  projectMembers   ProjectMember[]
+  checklists       Checklist[]      @relation("ChecklistAssignee")
+  timeLogs         TimeLog[]
+  studySessions    StudySession[]
+
+  @@map("users")
+}
+
+model Location {
+  id        String   @id @default(uuid())
+  name      String   @db.VarChar(100)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  studySessions StudySession[]
+
+  @@map("locations")
+}
+
+model Project {
+  id               String    @id @default(uuid())
+  title            String    @db.VarChar(200)
+  coverImageUrl    String?   @map("cover_image_url") @db.VarChar(500)
+  plannedStartDate DateTime? @map("planned_start_date") @db.Date
+  plannedEndDate   DateTime? @map("planned_end_date") @db.Date
+  createdById      String    @map("created_by")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+  rating           Int?      @db.SmallInt // 0~10, null이면 미평가
+
+  // Relations
+  createdBy      User            @relation("ProjectCreator", fields: [createdById], references: [id])
+  members        ProjectMember[]
+  checklists     Checklist[]
+
+  @@index([createdById])
+  @@index([createdAt])
+  @@map("projects")
+}
+
+model ProjectMember {
+  id        String   @id @default(uuid())
+  projectId String   @map("project_id")
+  userId    String   @map("user_id")
+  role      String   @default("member") @db.VarChar(20) // owner | member
+  joinedAt  DateTime @default(now()) @map("joined_at")
+
+  // Relations
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, userId])
+  @@index([userId])
+  @@map("project_members")
+}
+
+model Checklist {
+  id           String   @id @default(uuid())
+  projectId    String   @map("project_id")
+  content      String   @db.VarChar(500)
+  isCompleted  Boolean  @default(false) @map("is_completed")
+  assigneeId   String?  @map("assignee_id")
+  displayOrder Int      @default(0) @map("display_order")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  project  Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  assignee User?     @relation("ChecklistAssignee", fields: [assigneeId], references: [id])
+  timeLogs TimeLog[]
+
+  @@index([projectId])
+  @@index([assigneeId])
+  @@index([projectId, isCompleted])
+  @@map("checklists")
+}
+
+model TimeLog {
+  id          String    @id @default(uuid())
+  checklistId String    @map("checklist_id")
+  userId      String    @map("user_id")
+  startedAt   DateTime  @map("started_at")
+  endedAt     DateTime? @map("ended_at") // null이면 현재 진행 중
+
+  // Relations
+  checklist Checklist @relation(fields: [checklistId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([checklistId])
+  @@index([userId])
+  @@index([userId, startedAt])
+  @@map("time_logs")
+}
+
+model StudySession {
+  id         String    @id @default(uuid())
+  userId     String    @map("user_id")
+  locationId String    @map("location_id")
+  joinedAt   DateTime  @default(now()) @map("joined_at")
+  leftAt     DateTime? @map("left_at") // null이면 현재 참여 중
+
+  // Relations
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  location Location @relation(fields: [locationId], references: [id], onDelete: Cascade)
+
+  @@index([locationId])
+  @@index([userId])
+  @@index([locationId, leftAt])
+  @@map("study_sessions")
+}
