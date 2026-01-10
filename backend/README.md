@@ -1,98 +1,100 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# Momento Backend
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+NestJS + Prisma + PostgreSQL 기반 백엔드 서버
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+## 기술 스택
 
-## Description
+| 기술 | 버전 | 용도 |
+|------|------|------|
+| Node.js | 22.x | JavaScript 런타임 |
+| NestJS | 11.x | 백엔드 프레임워크 |
+| TypeScript | 5.x | 타입 안정성 |
+| Prisma | 6.x | ORM |
+| PostgreSQL | 16.x | 데이터베이스 |
+| Socket.io | - | 실시간 통신 (스터디 탭) |
+| Firebase Admin | 13.x | 인증 토큰 검증 |
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+## 시작하기
 
-## Project setup
+### 1. 의존성 설치
 
 ```bash
-$ npm install
+npm install
 ```
 
-## Compile and run the project
+### 2. 환경 변수 설정
 
 ```bash
-# development
-$ npm run start
-
-# watch mode
-$ npm run start:dev
-
-# production mode
-$ npm run start:prod
+cp .env.example .env
+# .env 파일에서 DATABASE_URL 등 수정
 ```
 
-## Run tests
+### 3. 데이터베이스 설정
 
 ```bash
-# unit tests
-$ npm run test
+# Prisma 클라이언트 생성
+npx prisma generate
 
-# e2e tests
-$ npm run test:e2e
+# 개발 환경 마이그레이션
+npx prisma migrate dev
 
-# test coverage
-$ npm run test:cov
+# 프로덕션 환경 마이그레이션
+npx prisma migrate deploy
 ```
 
-## Deployment
-
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
-
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+### 4. 서버 실행
 
 ```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
+# 개발 모드 (hot reload)
+npm run start:dev
+
+# 프로덕션 빌드
+npm run build
+
+# 프로덕션 실행
+npm run start:prod
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+## 폴더 구조
 
-## Resources
+```
+backend/
+├── prisma/
+│   ├── schema.prisma      # DB 스키마 정의
+│   └── migrations/        # 마이그레이션 히스토리
+├── src/
+│   ├── main.ts            # 앱 엔트리포인트
+│   ├── app.module.ts      # 루트 모듈
+│   └── modules/           # 기능별 모듈
+├── dist/                  # 빌드 결과물 (gitignore)
+├── .env                   # 환경 변수 (gitignore)
+├── .env.example           # 환경 변수 템플릿
+├── package.json           # 패키지 정의
+└── tsconfig.json          # TypeScript 설정
+```
 
-Check out a few resources that may come in handy when working with NestJS:
+## 주요 명령어
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+| 명령어 | 설명 |
+|--------|------|
+| `npm run start:dev` | 개발 서버 (hot reload) |
+| `npm run start:prod` | 프로덕션 서버 |
+| `npm run build` | TypeScript 빌드 |
+| `npm run lint` | ESLint 검사 |
+| `npm run format` | Prettier 포맷팅 |
+| `npx prisma studio` | DB GUI (localhost:5555) |
+| `npx prisma migrate dev` | 마이그레이션 생성 |
+| `npx prisma migrate deploy` | 마이그레이션 적용 |
 
-## Support
+## API 문서
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+상세 API 스펙은 [docs/API.md](../docs/API.md) 참고
 
-## Stay in touch
+## 환경 변수
 
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
-
-## License
-
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+| 변수 | 설명 | 예시 |
+|------|------|------|
+| `DATABASE_URL` | PostgreSQL 연결 문자열 | `postgresql://user:pass@localhost:5432/momento` |
+| `PORT` | 서버 포트 | `3000` |
+| `NODE_ENV` | 환경 | `development` / `production` |
+| `FIREBASE_PROJECT_ID` | Firebase 프로젝트 ID | - |
