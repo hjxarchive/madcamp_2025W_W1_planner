@@ -247,7 +247,7 @@ const TeamProjectPage: React.FC<TeamProjectPageProps> = ({
   const isActive = !!(currentTaskInProject && isTimerRunning);
   
   // 현재 실행 중인 Task의 할당자 찾기
-  const activeMemberId = currentTaskInProject?.assigneeId;
+  const activeMemberId = currentTaskInProject ? currentTaskInProject.assigneeId : undefined;
 
   return (
     <SafeAreaView 

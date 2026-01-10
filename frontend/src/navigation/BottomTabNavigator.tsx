@@ -21,10 +21,11 @@ const TabIcon: React.FC<TabIconProps> = ({ name, focused }) => {
   };
 
   const icons = iconMap[name] || { active: 'circle', inactive: 'circle-outline' };
+  const iconName = focused ? icons.active : icons.inactive;
 
   return (
     <Icon
-      name={focused ? icons.active : icons.inactive}
+      name={iconName as any}
       size={22}
       color={focused ? COLORS.gray900 : COLORS.gray400}
     />

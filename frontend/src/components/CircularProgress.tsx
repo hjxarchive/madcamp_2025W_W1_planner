@@ -86,7 +86,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   progressText: {
-    fontSize: FONT_SIZES.xxl,
+    fontSize: FONT_SIZES['2xl'],
     fontWeight: '700',
     color: COLORS.gray900,
   },

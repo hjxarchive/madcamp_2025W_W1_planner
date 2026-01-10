@@ -250,7 +250,7 @@ const styles = StyleSheet.create({
     color: COLORS.textMuted,
   },
   totalTime: {
-    fontSize: FONT_SIZES.xxl,
+    fontSize: FONT_SIZES['2xl'],
     fontWeight: '700',
     fontFamily: 'System',
     color: COLORS.gray900,
