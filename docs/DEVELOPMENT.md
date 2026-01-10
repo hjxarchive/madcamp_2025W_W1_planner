@@ -13,13 +13,18 @@
 
 ### React Native 개발 환경 (Frontend)
 
-#### macOS
-- Xcode (iOS 개발)
-- Android Studio (Android 개발)
-- Watchman (`brew install watchman`)
+#### 필수 설치
+- Android Studio (Hedgehog 이상)
+- JDK 17
+- Android SDK 33+ (API Level 33)
+- Watchman (`brew install watchman` - macOS)
 
-#### Windows
-- Android Studio (Android 개발만 가능)
+#### 테스트 환경
+
+| 기기 | 비고 |
+|------|------|
+| Galaxy S10e | 검증 완료 |
+| Galaxy S22+ | 검증 완료 |
 
 ---
 
@@ -71,19 +76,16 @@ cd frontend
 # 의존성 설치
 npm install
 
-# iOS 의존성 설치 (macOS만)
-cd ios && pod install && cd ..
-
 # 환경 변수 설정
 cp .env.example .env
 ```
 
 ```bash
-# iOS 실행
-npx react-native run-ios
-
-# Android 실행 (에뮬레이터 먼저 실행)
+# Android 에뮬레이터 또는 실제 기기 연결 후 실행
 npx react-native run-android
+
+# 연결된 기기 확인
+adb devices
 ```
 
 ---

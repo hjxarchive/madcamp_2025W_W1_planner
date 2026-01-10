@@ -57,8 +57,15 @@
 
 | 구분 | 기술 | 용도 |
 |------|------|------|
-| Framework | React Native | 모바일 앱 (iOS/Android) |
+| Framework | React Native | Android 앱 |
 | 인증 | Firebase Auth | 사용자 인증 |
+
+### 테스트 환경
+
+| 기기 | 비고 |
+|------|------|
+| Galaxy S10e | 검증 완료 |
+| Galaxy S22+ | 검증 완료 |
 
 ### Infrastructure
 
@@ -92,13 +99,14 @@ momento/
 │   │   └── modules/         # 기능별 모듈
 │   └── .env.example         # 환경 변수 예시
 │
-├── frontend/                # React Native 앱
+├── frontend/                # React Native 앱 (Android 전용)
 │   ├── src/
 │   │   ├── components/      # 재사용 컴포넌트
 │   │   ├── screens/         # 화면 컴포넌트
 │   │   ├── navigation/      # 네비게이션 설정
 │   │   ├── services/        # API 서비스
 │   │   └── hooks/           # 커스텀 훅
+│   ├── android/             # Android 네이티브 코드
 │   └── .env.example         # 환경 변수 예시
 │
 └── docs/                    # 프로젝트 문서
@@ -115,7 +123,8 @@ momento/
 
 - Node.js 22.x 이상
 - PostgreSQL 16.x
-- React Native 개발 환경 (Xcode, Android Studio)
+- Android Studio (Hedgehog 이상)
+- JDK 17
 
 ### Backend 설정
 
@@ -141,11 +150,11 @@ npm run start:dev
 cd frontend
 npm install
 
-# iOS
-npx react-native run-ios
-
-# Android
+# Android 에뮬레이터 또는 실제 기기 연결 후 실행
 npx react-native run-android
+
+# 특정 기기 지정 (Galaxy S10e/S22+ 에뮬레이터)
+npx react-native run-android --deviceId=<device-id>
 ```
 
 자세한 설정 방법은 각 디렉토리의 README를 참고하세요:
