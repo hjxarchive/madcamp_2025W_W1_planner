@@ -6,6 +6,135 @@ interface ApiResponse<T> {
   status: number;
 }
 
+// ============ Type Definitions ============
+export interface User {
+  id: string;
+  firebaseUid: string;
+  nickname: string;
+  profileEmoji: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ProjectMember {
+  id: string;
+  userId: string;
+  nickname: string;
+  profileEmoji: string | null;
+  role: 'owner' | 'member';
+}
+
+export interface ChecklistItem {
+  id: string;
+  content: string;
+  isCompleted: boolean;
+  assigneeId: string | null;
+  assigneeNickname: string | null;
+  displayOrder: number;
+  totalTimeMinutes: number;
+}
+
+export interface ProjectSummary {
+  id: string;
+  title: string;
+  coverImageUrl: string | null;
+  plannedStartDate: string | null;
+  plannedEndDate: string | null;
+  rating: number | null;
+  memberCount: number;
+  completedChecklistCount: number;
+  totalChecklistCount: number;
+  totalTimeMinutes: number;
+  createdAt: string;
+}
+
+export interface ProjectDetail {
+  id: string;
+  title: string;
+  coverImageUrl: string | null;
+  plannedStartDate: string | null;
+  plannedEndDate: string | null;
+  rating: number | null;
+  members: ProjectMember[];
+  checklists: ChecklistItem[];
+  createdAt: string;
+}
+
+export interface TimeLog {
+  id: string;
+  checklistId: string;
+  userId: string;
+  startedAt: string;
+  endedAt: string | null;
+  durationMinutes?: number;
+}
+
+export interface TimeLogDetail {
+  id: string;
+  checklistId: string;
+  checklistContent: string;
+  projectId: string;
+  projectTitle: string;
+  startedAt: string;
+  endedAt: string;
+  durationMinutes: number;
+}
+
+export interface CompletedTask {
+  id: string;
+  content: string;
+  projectId: string;
+  projectTitle: string;
+  completedAt: string;
+  totalTimeMinutes: number;
+}
+
+export interface TodaySummaryResponse {
+  date: string;
+  totalMinutes: number;
+  completedTasksCount: number;
+  projects: {
+    projectId: string;
+    projectTitle: string;
+    minutes: number;
+    completedTasksCount: number;
+  }[];
+  timeLogs: TimeLogDetail[];
+  completedTasks: CompletedTask[];
+}
+
+export interface Location {
+  id: string;
+  name: string;
+}
+
+export interface StudySession {
+  id: string;
+  userId: string;
+  locationId: string;
+  joinedAt: string;
+  leftAt: string | null;
+}
+
+export interface Participant {
+  userId: string;
+  nickname: string;
+  profileEmoji: string | null;
+  currentProject: string | null;
+  todayTotalMinutes: number;
+  joinedAt: string;
+}
+
+export interface PaginatedResponse<T> {
+  data: T[];
+  meta: {
+    total: number;
+    page: number;
+    limit: number;
+  };
+}
+
+// ============ API Service Class ============
 class ApiService {
   private baseUrl: string;
   private token: string | null = null;
@@ -30,7 +159,7 @@ class ApiService {
     };
 
     if (this.token) {
-      (headers as Record<string, string>)['Authorization'] = `Bearer ${this.token}`;
+      headers['Authorization'] = `Bearer ${this.token}`;
     }
 
     try {
@@ -60,12 +189,11 @@ class ApiService {
     }
   }
 
-  // GET request
+  // Base HTTP Methods
   async get<T>(endpoint: string): Promise<ApiResponse<T>> {
     return this.request<T>(endpoint, { method: 'GET' });
   }
 
-  // POST request
   async post<T>(endpoint: string, body?: unknown): Promise<ApiResponse<T>> {
     return this.request<T>(endpoint, {
       method: 'POST',
@@ -73,15 +201,6 @@ class ApiService {
     });
   }
 
-  // PUT request
-  async put<T>(endpoint: string, body?: unknown): Promise<ApiResponse<T>> {
-    return this.request<T>(endpoint, {
-      method: 'PUT',
-      body: body ? JSON.stringify(body) : undefined,
-    });
-  }
-
-  // PATCH request
   async patch<T>(endpoint: string, body?: unknown): Promise<ApiResponse<T>> {
     return this.request<T>(endpoint, {
       method: 'PATCH',
@@ -89,175 +208,173 @@ class ApiService {
     });
   }
 
-  // DELETE request
   async delete<T>(endpoint: string): Promise<ApiResponse<T>> {
     return this.request<T>(endpoint, { method: 'DELETE' });
   }
 
-  // ============ Auth API ============
-  async login(email: string, password: string) {
-    return this.post<{ access_token: string; user: any }>('/auth/login', {
-      email,
-      password,
-    });
+  // ============ Users API ============
+  
+  /** 내 정보 조회 */
+  async getMe() {
+    return this.get<User>('/users/me');
   }
 
-  async register(email: string, password: string, name: string) {
-    return this.post<{ access_token: string; user: any }>('/auth/register', {
-      email,
-      password,
-      name,
-    });
+  /** 회원가입 (최초 로그인 시) */
+  async createUser(data: { nickname: string; profileEmoji?: string }) {
+    return this.post<User>('/users', data);
   }
 
-  async getProfile() {
-    return this.get<any>('/auth/profile');
+  /** 내 정보 수정 */
+  async updateMe(data: { nickname?: string; profileEmoji?: string }) {
+    return this.patch<User>('/users/me', data);
+  }
+
+  /** 닉네임으로 사용자 검색 (멤버 초대용) */
+  async searchUserByNickname(nickname: string) {
+    return this.get<User>(`/users/search?nickname=${encodeURIComponent(nickname)}`);
   }
 
   // ============ Projects API ============
-  async getProjects() {
-    return this.get<any[]>('/projects');
+  
+  /** 진행 중인 프로젝트 (개인 + 협업 모두) */
+  async getCurrentProjects() {
+    return this.get<PaginatedResponse<ProjectSummary>>('/projects/current');
   }
 
+  /** 완료된 프로젝트 */
+  async getPastProjects() {
+    return this.get<PaginatedResponse<ProjectSummary>>('/projects/past');
+  }
+
+  /** 프로젝트 상세 조회 */
   async getProject(id: string) {
-    return this.get<any>(`/projects/${id}`);
+    return this.get<ProjectDetail>(`/projects/${id}`);
   }
 
+  /** 프로젝트 생성 (개인/협업 모두 지원) */
   async createProject(data: {
     title: string;
-    description?: string;
-    color?: string;
-    icon?: string;
-    isTeam?: boolean;
+    coverImageUrl?: string;
+    plannedStartDate?: string;
+    plannedEndDate?: string;
+    memberNicknames?: string[];  // 협업 프로젝트 생성 시 함께 추가할 멤버 닉네임
   }) {
-    return this.post<any>('/projects', data);
+    return this.post<ProjectDetail>('/projects', data);
   }
 
-  async updateProject(id: string, data: Partial<{
-    title: string;
-    description: string;
-    color: string;
-    icon: string;
-  }>) {
-    return this.patch<any>(`/projects/${id}`, data);
+  /** 프로젝트 수정 */
+  async updateProject(id: string, data: {
+    title?: string;
+    coverImageUrl?: string;
+    plannedStartDate?: string;
+    plannedEndDate?: string;
+    rating?: number;
+  }) {
+    return this.patch<ProjectDetail>(`/projects/${id}`, data);
   }
 
+  /** 프로젝트 삭제 */
   async deleteProject(id: string) {
     return this.delete<void>(`/projects/${id}`);
   }
 
-  async archiveProject(id: string) {
-    return this.patch<any>(`/projects/${id}/archive`, {});
+  /** 프로젝트 완료 (보고서 작성) */
+  async completeProject(id: string, data: { rating: number }) {
+    return this.post<{
+      id: string;
+      title: string;
+      rating: number;
+      completedAt: string;
+      totalTimeMinutes: number;
+      message: string;
+    }>(`/projects/${id}/complete`, data);
   }
 
-  // ============ Tasks API ============
-  async getTasks(projectId?: string) {
-    const endpoint = projectId ? `/tasks?projectId=${projectId}` : '/tasks';
-    return this.get<any[]>(endpoint);
+  // ============ Project Members API ============
+  
+  /** 멤버 추가 (닉네임으로 초대) */
+  async addProjectMember(projectId: string, data: { userId: string; role?: string }) {
+    return this.post<ProjectMember>(`/projects/${projectId}/members`, data);
   }
 
-  async getTodayTasks() {
-    return this.get<any[]>('/tasks/today');
+  /** 멤버 삭제 */
+  async removeProjectMember(projectId: string, userId: string) {
+    return this.delete<void>(`/projects/${projectId}/members/${userId}`);
   }
 
-  async getTask(id: string) {
-    return this.get<any>(`/tasks/${id}`);
-  }
-
-  async createTask(data: {
-    title: string;
-    description?: string;
-    projectId?: string;
-    dueDate?: string;
-    priority?: number;
+  // ============ Checklists API ============
+  
+  /** 체크리스트 추가 */
+  async createChecklist(projectId: string, data: {
+    content: string;
+    assigneeId?: string;
+    displayOrder?: number;
   }) {
-    return this.post<any>('/tasks', data);
+    return this.post<ChecklistItem>(`/projects/${projectId}/checklists`, data);
   }
 
-  async updateTask(id: string, data: Partial<{
-    title: string;
-    description: string;
-    completed: boolean;
-    dueDate: string;
-    priority: number;
-  }>) {
-    return this.patch<any>(`/tasks/${id}`, data);
+  /** 체크리스트 수정 */
+  async updateChecklist(id: string, data: {
+    content?: string;
+    isCompleted?: boolean;
+    assigneeId?: string;
+    displayOrder?: number;
+  }) {
+    return this.patch<ChecklistItem>(`/checklists/${id}`, data);
   }
 
-  async deleteTask(id: string) {
-    return this.delete<void>(`/tasks/${id}`);
+  /** 체크리스트 삭제 */
+  async deleteChecklist(id: string) {
+    return this.delete<void>(`/checklists/${id}`);
   }
 
-  async toggleTask(id: string) {
-    return this.patch<any>(`/tasks/${id}/toggle`, {});
+  // ============ Time Logs API ============
+  
+  /** 타이머 시작 */
+  async startTimer(checklistId: string) {
+    return this.post<TimeLog>(`/checklists/${checklistId}/time-logs/start`);
   }
 
-  // ============ Time Tracking API ============
-  async startTimer(taskId?: string) {
-    return this.post<any>('/time-tracking/start', { taskId });
+  /** 타이머 정지 */
+  async stopTimer(timeLogId: string) {
+    return this.post<TimeLog>(`/time-logs/${timeLogId}/stop`);
   }
 
-  async stopTimer() {
-    return this.post<any>('/time-tracking/stop', {});
+  /** 오늘 활동 요약 조회 (일일 영수증용) */
+  async getTodaySummary() {
+    return this.get<TodaySummaryResponse>('/time-logs/today');
   }
 
-  async getTodayTime() {
-    return this.get<{ totalSeconds: number }>('/time-tracking/today');
+  // ============ Locations API ============
+  
+  /** 장소 목록 조회 */
+  async getLocations() {
+    return this.get<{ data: Location[] }>('/locations');
   }
 
-  async getTimeHistory(startDate?: string, endDate?: string) {
-    let endpoint = '/time-tracking/history';
-    if (startDate && endDate) {
-      endpoint += `?startDate=${startDate}&endDate=${endDate}`;
-    }
-    return this.get<any[]>(endpoint);
+  /** 장소 생성 */
+  async createLocation(data: { name: string }) {
+    return this.post<Location>('/locations', data);
   }
 
   // ============ Study Sessions API ============
-  async getStudySessions() {
-    return this.get<any[]>('/study-sessions');
+  
+  /** 스터디 세션 참가 */
+  async joinStudySession(locationId: string) {
+    return this.post<StudySession>(`/locations/${locationId}/join`);
   }
 
-  async createStudySession(data: {
-    title: string;
-    description?: string;
-    scheduledAt?: string;
-    duration?: number;
-  }) {
-    return this.post<any>('/study-sessions', data);
+  /** 스터디 세션 퇴장 */
+  async leaveStudySession(sessionId: string) {
+    return this.post<StudySession>(`/study-sessions/${sessionId}/leave`);
   }
 
-  async joinStudySession(id: string) {
-    return this.post<any>(`/study-sessions/${id}/join`, {});
-  }
-
-  async leaveStudySession(id: string) {
-    return this.post<any>(`/study-sessions/${id}/leave`, {});
-  }
-
-  // ============ Archive API ============
-  async getArchivedProjects() {
-    return this.get<any[]>('/projects/archived');
-  }
-
-  async getArchiveReceipt(projectId: string) {
-    return this.get<any>(`/projects/${projectId}/receipt`);
-  }
-
-  // ============ Collab API ============
-  async getCollabProjects() {
-    return this.get<any[]>('/collab/projects');
-  }
-
-  async createCollabProject(data: {
-    title: string;
-    description?: string;
-  }) {
-    return this.post<any>('/collab/projects', data);
-  }
-
-  async inviteToCollab(projectId: string, email: string) {
-    return this.post<any>(`/collab/projects/${projectId}/invite`, { email });
+  /** 특정 장소의 참가자 조회 */
+  async getLocationParticipants(locationId: string) {
+    return this.get<{
+      location: Location;
+      participants: Participant[];
+    }>(`/locations/${locationId}/participants`);
   }
 }
 

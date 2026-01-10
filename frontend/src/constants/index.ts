@@ -1,6 +1,11 @@
 // API Configuration
-export const API_BASE_URL = 'https://momento.dawoony.com/api';
-export const WS_URL = 'wss://momento.dawoony.com';
+// 프로덕션 환경에서는 실제 서버 IP로 변경하세요 (예: http://172.x.x.x:3000)
+export const API_BASE_URL = __DEV__ 
+  ? 'http://10.0.2.2:3000/api'  // Android 에뮬레이터에서 localhost 접근
+  : 'http://172.10.1.1:3000/api';  // TODO: 실제 서버 IP로 변경
+export const WS_URL = __DEV__
+  ? 'ws://10.0.2.2:3000'
+  : 'ws://172.10.1.1:3000';  // TODO: 실제 서버 IP로 변경
 
 // App Configuration
 export const APP_NAME = 'Momento';

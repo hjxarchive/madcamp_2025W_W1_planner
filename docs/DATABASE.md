@@ -222,22 +222,25 @@ PostgreSQL 16.x를 사용하며, Prisma ORM을 통해 데이터베이스에 접�
 
 ## 주요 쿼리 패턴
 
-### 현재 탭 프로젝트 조회 (개인, 진행 중)
+### 진행 중인 프로젝트 조회 (개인 + 협업 모두)
 
 ```sql
-SELECT p.* 
+SELECT p.*, 
+       COUNT(DISTINCT pm2.id) as member_count
 FROM projects p
 INNER JOIN project_members pm ON pm.project_id = p.id
+LEFT JOIN project_members pm2 ON pm2.project_id = p.id
 WHERE pm.user_id = :userId
-GROUP BY p.id
-HAVING COUNT(pm.id) = 1
 AND EXISTS (
     SELECT 1 FROM checklists c 
     WHERE c.project_id = p.id AND c.is_completed = false
-);
+)
+GROUP BY p.id;
 ```
 
-### 과거 탭 프로젝트 조회 (완료된 프로젝트)
+> ℹ️ `member_count`로 개인(1명)/협업(2명 이상) 구분 가능
+
+### 완료된 프로젝트 조회
 
 ```sql
 SELECT p.* 
@@ -245,25 +248,6 @@ FROM projects p
 INNER JOIN project_members pm ON pm.project_id = p.id
 WHERE pm.user_id = :userId
 AND NOT EXISTS (
-    SELECT 1 FROM checklists c 
-    WHERE c.project_id = p.id AND c.is_completed = false
-);
-```
-
-### 협업 탭 프로젝트 조회 (협업, 진행 중)
-
-```sql
-SELECT p.* 
-FROM projects p
-INNER JOIN project_members pm ON pm.project_id = p.id
-WHERE pm.user_id = :userId
-GROUP BY p.id
-HAVING COUNT(pm.id) >= 2
-AND EXISTS (
-    SELECT 1 FROM checklists c 
-    WHERE c.project_id = p.id AND c.is_completed = false
-);
-```
 
 ### 오늘 작업 시간 집계
 
