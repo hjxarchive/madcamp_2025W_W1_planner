@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import MaterialDesignIcons from '@react-native-vector-icons/material-design-icons';
 const Icon = MaterialDesignIcons;
-import { COLORS, FONT_SIZES, SPACING, BORDER_RADIUS, formatTime, formatTimeShort, formatDate } from '@constants/index';
+import { COLORS, FONT_SIZES, FONTS, FONT_WEIGHTS, SPACING, BORDER_RADIUS, formatTime, formatTimeShort, formatDate } from '@constants/index';
 
 // Types
 interface Task {
@@ -202,7 +202,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: FONT_SIZES.md,
-    fontWeight: '600',
+    fontWeight: FONT_WEIGHTS.semibold,
     color: COLORS.textPrimary,
     flex: 1,
   },
@@ -232,7 +232,8 @@ const styles = StyleSheet.create({
   },
   statTextActive: {
     color: COLORS.primary,
-    fontWeight: '600',
+    fontWeight: FONT_WEIGHTS.semibold,
+    fontFamily: FONTS.mono,
   },
   // Circular progress
   circleBase: {
@@ -248,7 +249,7 @@ const styles = StyleSheet.create({
   },
   circleText: {
     fontSize: FONT_SIZES.xs,
-    fontWeight: '600',
+    fontWeight: FONT_WEIGHTS.semibold,
     color: COLORS.textPrimary,
   },
   // Progress bar

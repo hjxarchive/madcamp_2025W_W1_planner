@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import MaterialDesignIcons from '@react-native-vector-icons/material-design-icons';
 const Icon = MaterialDesignIcons;
-import { COLORS, FONT_SIZES, SPACING, BORDER_RADIUS, formatTimeShort } from '@constants/index';
+import { COLORS, FONT_SIZES, FONTS, FONT_WEIGHTS, SPACING, BORDER_RADIUS, formatTime, formatTimeShort } from '@constants/index';
 
 // Types
 interface Task {
@@ -20,6 +20,7 @@ interface TaskItemProps {
   task: Task;
   onToggle: () => void;
   onStartTimer?: () => void;
+  onStopTimer?: () => void;
   isTimerRunning?: boolean;
   currentTaskId?: string;
   currentProjectId?: string;
@@ -33,6 +34,7 @@ export const TaskItem: React.FC<TaskItemProps> = ({
   task,
   onToggle,
   onStartTimer,
+  onStopTimer,
   isTimerRunning = false,
   currentTaskId,
   currentProjectId,
@@ -97,24 +99,28 @@ export const TaskItem: React.FC<TaskItemProps> = ({
         )}
       </View>
 
-      {/* Duration display */}
-      {displayTime > 0 && (
+      {/* Duration display - 실행 중일 때는 초 단위까지 표시 */}
+      {(displayTime > 0 || isActive) && (
         <Text style={[styles.duration, isActive && styles.durationActive]}>
-          {formatTimeShort(displayTime)}
+          {isActive ? formatTime(displayTime) : formatTimeShort(displayTime)}
         </Text>
       )}
 
-      {/* Timer button */}
-      {!task.isDone && onStartTimer && (
+      {/* Timer button - Start or Stop */}
+      {!task.isDone && (onStartTimer || onStopTimer) && (
         <TouchableOpacity
-          style={[styles.timerButton, isActive && styles.timerButtonActive]}
-          onPress={onStartTimer}
+          style={[
+            styles.timerButton,
+            isActive && styles.timerButtonActive,
+            isTimerRunning && !isActive && styles.timerButtonDisabled,
+          ]}
+          onPress={isActive ? onStopTimer : onStartTimer}
           disabled={isTimerRunning && !isActive}
         >
-          <Icon 
-            name={isActive ? "pause" : "play"} 
-            size={18} 
-            color={isActive ? COLORS.primary : COLORS.textMuted} 
+          <Icon
+            name={isActive ? "stop" : "play"}
+            size={18}
+            color={isActive ? COLORS.error : (isTimerRunning && !isActive) ? COLORS.gray300 : COLORS.textMuted}
           />
         </TouchableOpacity>
       )}
@@ -188,12 +194,14 @@ const styles = StyleSheet.create({
   duration: {
     fontSize: FONT_SIZES.xs,
     color: COLORS.textMuted,
-    fontFamily: 'System',
+    fontFamily: FONTS.mono,
     marginRight: SPACING.sm,
   },
   durationActive: {
+    fontSize: FONT_SIZES.sm,
     color: COLORS.primary,
-    fontWeight: '600',
+    fontWeight: FONT_WEIGHTS.bold,
+    fontFamily: FONTS.mono,
   },
   timerButton: {
     width: 32,
@@ -204,7 +212,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   timerButtonActive: {
-    backgroundColor: COLORS.primaryLight + '30',
+    backgroundColor: '#FEE2E2', // Light red background for stop button
+  },
+  timerButtonDisabled: {
+    opacity: 0.5,
   },
 });
 

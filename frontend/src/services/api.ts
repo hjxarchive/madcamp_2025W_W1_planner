@@ -156,6 +156,10 @@ class ApiService {
 
   constructor() {
     this.baseUrl = API_BASE_URL;
+    // 개발 모드에서는 자동으로 dev-token 설정
+    if (__DEV__) {
+      this.token = 'dev-token';
+    }
   }
 
   setToken(token: string | null) {
@@ -173,11 +177,14 @@ class ApiService {
       ...(options.headers as Record<string, string>),
     };
 
-    if (this.token) {
-      headers['Authorization'] = `Bearer ${this.token}`;
+    // 개발 모드에서는 항상 토큰 포함 (dev-token)
+    const authToken = this.token || (__DEV__ ? 'dev-token' : null);
+    if (authToken) {
+      headers['Authorization'] = `Bearer ${authToken}`;
     }
 
     try {
+      console.log(`[API] ${options.method || 'GET'} ${url}`);
       const response = await fetch(url, {
         ...options,
         headers,
@@ -186,17 +193,20 @@ class ApiService {
       const data = await response.json().catch(() => null);
 
       if (!response.ok) {
+        console.log(`[API] Error: ${response.status}`, data);
         return {
           error: data?.message || 'An error occurred',
           status: response.status,
         };
       }
 
+      console.log(`[API] Success: ${response.status}`);
       return {
         data,
         status: response.status,
       };
     } catch (error) {
+      console.log(`[API] Network Error:`, error);
       return {
         error: error instanceof Error ? error.message : 'Network error',
         status: 0,
@@ -416,6 +426,31 @@ class ApiService {
   /** 영수증 삭제 */
   async deleteReceipt(date: string) {
     return this.delete<void>(`/receipts/${date}`);
+  }
+
+  // ============ Collab Projects API ============
+  
+  /** 협업 프로젝트 목록 조회 (멤버가 2명 이상인 프로젝트) */
+  async getCollabProjects() {
+    // 현재 진행 중인 프로젝트에서 협업 프로젝트(멤버 2명 이상)만 필터링
+    const response = await this.get<PaginatedResponse<ProjectSummary>>('/projects/current');
+    if (response.data) {
+      const collabProjects = response.data.data.filter(p => p.memberCount > 1);
+      return {
+        ...response,
+        data: collabProjects.map(p => ({
+          id: p.id,
+          title: p.title,
+          description: undefined as string | undefined,
+          color: '#6366F1', // 기본 색상
+          members: [] as { id: string; name: string; avatar?: string; role: 'owner' | 'admin' | 'member'; isOnline: boolean }[],
+          taskCount: p.totalChecklistCount,
+          completedCount: p.completedChecklistCount,
+          lastActivity: p.createdAt,
+        })),
+      };
+    }
+    return { ...response, data: [] };
   }
 }
 

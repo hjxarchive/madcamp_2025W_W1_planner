@@ -12,9 +12,9 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import MaterialDesignIcons from '@react-native-vector-icons/material-design-icons';
 const Icon = MaterialDesignIcons;
-import { TotalTimeDisplay, TaskItem, ProjectCard, FloatingTimer } from '@components/index';
+import { TotalTimeDisplay, TaskItem, ProjectCard, FloatingTimer, ProfileModal, FocusModeModal } from '@components/index';
 import { api } from '@services/api';
-import { COLORS, FONT_SIZES, SPACING, BORDER_RADIUS, formatTime, formatTimeShort } from '@constants/index';
+import { COLORS, FONT_SIZES, FONTS, FONT_WEIGHTS, SPACING, BORDER_RADIUS, formatTime, formatTimeShort } from '@constants/index';
 import type { RootStackParamList } from '@navigation/RootNavigator';
 
 // Types
@@ -121,6 +121,12 @@ export const HomeScreen: React.FC = () => {
   const [currentProject, setCurrentProject] = useState<Project | null>(null);
   const [currentTask, setCurrentTask] = useState<Task | null>(null);
 
+  // Profile modal state
+  const [showProfile, setShowProfile] = useState(false);
+
+  // Focus mode state
+  const [showFocusMode, setShowFocusMode] = useState(false);
+
   // 전체 시간 계산
   const totalTimeMs = projects.reduce((sum, p) => sum + p.totalTimeMs, 0);
   
@@ -210,16 +216,14 @@ export const HomeScreen: React.FC = () => {
     console.log('Create project');
   };
 
-  // 타이머 선택 모달
-  const handleStartTimer = () => {
-    // TODO: Open timer select modal
-    console.log('Start timer');
-  };
-
   // 프로필 보기
   const handleShowProfile = () => {
-    // TODO: Open profile modal
-    console.log('Show profile');
+    setShowProfile(true);
+  };
+
+  // 사용자 정보 업데이트
+  const handleUpdateUser = (updatedUser: User) => {
+    setUser(updatedUser);
   };
 
   // 활성화된(보고서 작성 안 된) 프로젝트만 표시
@@ -254,7 +258,7 @@ export const HomeScreen: React.FC = () => {
           timeMs={totalTimeMs + (isTimerRunning ? elapsedTime : 0)}
           isRunning={isTimerRunning}
           currentTask={currentTask}
-          onTimerClick={() => isTimerRunning && console.log('Timer clicked')}
+          onTimerClick={() => isTimerRunning && setShowFocusMode(true)}
         />
 
         {/* Daily Todo Section - 오늘 할 일 */}
@@ -278,6 +282,7 @@ export const HomeScreen: React.FC = () => {
                   task={task}
                   onToggle={() => handleToggleDailyTask(task.projectId, task.id)}
                   onStartTimer={() => handleStartDailyTaskTimer(task)}
+                  onStopTimer={handleStopTimer}
                   isTimerRunning={isTimerRunning}
                   currentTaskId={currentTask?.id}
                   currentProjectId={currentProject?.id}
@@ -316,15 +321,6 @@ export const HomeScreen: React.FC = () => {
         </View>
       </ScrollView>
 
-      {/* 시간 측정 시작 버튼 */}
-      {!isTimerRunning && activeProjects.length > 0 && (
-        <View style={styles.startButtonContainer}>
-          <TouchableOpacity style={styles.startButton} onPress={handleStartTimer}>
-            <Icon name="play" size={20} color="#fff" />
-            <Text style={styles.startButtonText}>시간 측정 시작</Text>
-          </TouchableOpacity>
-        </View>
-      )}
 
       {/* Floating Timer */}
       <FloatingTimer
@@ -333,7 +329,25 @@ export const HomeScreen: React.FC = () => {
         project={currentProject}
         task={currentTask}
         onStop={handleStopTimer}
-        onExpand={() => console.log('Expand timer')}
+        onExpand={() => setShowFocusMode(true)}
+      />
+
+      {/* Profile Modal */}
+      <ProfileModal
+        isOpen={showProfile}
+        onClose={() => setShowProfile(false)}
+        user={user}
+        onUpdateUser={handleUpdateUser}
+      />
+
+      {/* Focus Mode Modal */}
+      <FocusModeModal
+        isOpen={showFocusMode}
+        onClose={() => setShowFocusMode(false)}
+        project={currentProject}
+        task={currentTask}
+        elapsedTime={elapsedTime}
+        onStop={handleStopTimer}
       />
     </SafeAreaView>
   );
@@ -365,11 +379,11 @@ const styles = StyleSheet.create({
     fontSize: FONT_SIZES.xl,
   },
   headerNickname: {
-    fontWeight: '600',
+    fontWeight: FONT_WEIGHTS.semibold,
     color: COLORS.textPrimary,
   },
   headerSuffix: {
-    fontWeight: '300',
+    fontWeight: FONT_WEIGHTS.normal,
     color: COLORS.textPrimary,
   },
   profileButton: {
@@ -392,7 +406,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: FONT_SIZES.sm,
-    fontWeight: '500',
+    fontWeight: FONT_WEIGHTS.medium,
     color: COLORS.textSecondary,
   },
   // Todo container
@@ -428,32 +442,6 @@ const styles = StyleSheet.create({
   newProjectText: {
     fontSize: FONT_SIZES.sm,
     color: COLORS.textMuted,
-  },
-  // Start button
-  startButtonContainer: {
-    position: 'absolute',
-    bottom: 100,
-    left: SPACING.base,
-    right: SPACING.base,
-  },
-  startButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: SPACING.base,
-    backgroundColor: COLORS.gray900,
-    borderRadius: BORDER_RADIUS.xl,
-    gap: SPACING.sm,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
-  },
-  startButtonText: {
-    fontSize: FONT_SIZES.md,
-    fontWeight: '500',
-    color: '#fff',
   },
 });
 

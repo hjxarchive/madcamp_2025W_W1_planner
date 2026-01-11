@@ -2,7 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Animated, Dimensions } from 'react-native';
 import MaterialDesignIcons from '@react-native-vector-icons/material-design-icons';
 const Icon = MaterialDesignIcons;
-import { COLORS, FONT_SIZES, SPACING, BORDER_RADIUS, formatTime } from '@constants/index';
+import { COLORS, FONT_SIZES, FONTS, FONT_WEIGHTS, SPACING, BORDER_RADIUS, formatTime } from '@constants/index';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -135,7 +135,7 @@ const styles = StyleSheet.create({
   taskContent: {
     fontSize: FONT_SIZES.sm,
     color: '#fff',
-    fontWeight: '500',
+    fontWeight: FONT_WEIGHTS.medium,
   },
   timeSection: {
     marginRight: SPACING.md,
@@ -143,8 +143,8 @@ const styles = StyleSheet.create({
   timeText: {
     fontSize: FONT_SIZES.md,
     color: '#fff',
-    fontWeight: '600',
-    fontFamily: 'System',
+    fontWeight: FONT_WEIGHTS.semibold,
+    fontFamily: FONTS.mono,
   },
   stopButton: {
     width: 36,

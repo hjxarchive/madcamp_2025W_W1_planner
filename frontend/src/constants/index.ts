@@ -1,18 +1,14 @@
+import { Platform } from 'react-native';
+
 // API Configuration
-// ⚠️ 서버 IP는 .env 파일에서 관리하세요 (git에 커밋되지 않음)
-// 개발 환경에서는 아래 값을 직접 수정하거나 .env 파일을 사용하세요
+// 서버는 Nginx 리버스 프록시를 통해 80 포트로 서비스됨
+// 내부: NestJS (3000) -> 외부: Nginx (80)
 
-// 서버 IP 설정 (프로덕션 배포 시 환경변수로 관리 권장)
 const SERVER_IP = '172.10.5.61';
-const SERVER_PORT = '3000';
 
-export const API_BASE_URL = __DEV__ 
-  ? `http://${SERVER_IP}:${SERVER_PORT}/api`  // 개발 환경
-  : `http://${SERVER_IP}:${SERVER_PORT}/api`; // 프로덕션 환경
+export const API_BASE_URL = `http://${SERVER_IP}/api`;  // Nginx 80 포트 (포트 생략)
 
-export const WS_URL = __DEV__
-  ? `ws://${SERVER_IP}:${SERVER_PORT}`
-  : `ws://${SERVER_IP}:${SERVER_PORT}`;
+export const WS_URL = `ws://${SERVER_IP}`;  // WebSocket도 80 포트
 
 // App Configuration
 export const APP_NAME = 'Momento';
@@ -80,6 +76,41 @@ export const COLORS = {
   // Barcode colors
   barcodeActive: '#374151',  // gray-700
   barcodeInactive: '#F3F4F6', // gray-100
+};
+
+// Font families - Momento 스타일
+export const FONTS = {
+  // 기본 폰트 (본문용)
+  regular: Platform.select({
+    ios: 'System',
+    android: 'Roboto',
+  }) as string,
+
+  // 중간 굵기
+  medium: Platform.select({
+    ios: 'System',
+    android: 'Roboto',
+  }) as string,
+
+  // 굵은 폰트 (제목용)
+  bold: Platform.select({
+    ios: 'System',
+    android: 'Roboto',
+  }) as string,
+
+  // 고정폭 폰트 (시간 표시용) - MomentoApp.jsx의 font-mono와 동일
+  mono: Platform.select({
+    ios: 'Menlo',
+    android: 'monospace',
+  }) as string,
+};
+
+// Font weights
+export const FONT_WEIGHTS = {
+  normal: '400' as const,
+  medium: '500' as const,
+  semibold: '600' as const,
+  bold: '700' as const,
 };
 
 // Font sizes

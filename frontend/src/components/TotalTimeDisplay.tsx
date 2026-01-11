@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet, Animated, Easing, TouchableOpacity } from 'react-native';
 import Svg, { Path, Defs, ClipPath, Circle, G } from 'react-native-svg';
-import { COLORS, FONT_SIZES, SPACING, formatTime } from '@constants/index';
+import { COLORS, FONT_SIZES, FONTS, FONT_WEIGHTS, SPACING, formatTime } from '@constants/index';
 
 interface TotalTimeDisplayProps {
   timeMs: number;
@@ -120,10 +120,10 @@ export const TotalTimeDisplay: React.FC<TotalTimeDisplayProps> = ({
         { borderColor: isRunning ? COLORS.primary : COLORS.gray300 }
       ]}>
         {/* SVG Wave Animation */}
-        <Svg width={INNER_SIZE} height={INNER_SIZE} style={styles.svgContainer}>
+        <Svg width={INNER_SIZE} height={INNER_SIZE} style={styles.svgContainer} viewBox={`0 0 ${INNER_SIZE} ${INNER_SIZE}`}>
           <Defs>
             <ClipPath id="circleClip">
-              <Circle cx={INNER_SIZE / 2} cy={INNER_SIZE / 2} r={INNER_SIZE / 2 - 2} />
+              <Circle cx={INNER_SIZE / 2} cy={INNER_SIZE / 2} r={INNER_SIZE / 2} />
             </ClipPath>
           </Defs>
           
@@ -186,6 +186,7 @@ const styles = StyleSheet.create({
   circleContainer: {
     width: SIZE,
     height: SIZE,
+    aspectRatio: 1,
     borderRadius: SIZE / 2,
     overflow: 'hidden',
     justifyContent: 'center',
@@ -204,6 +205,8 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 0,
     left: 0,
+    borderRadius: INNER_SIZE / 2,
+    overflow: 'hidden',
   },
   pulseBorder: {
     position: 'absolute',
@@ -221,9 +224,9 @@ const styles = StyleSheet.create({
   },
   timeText: {
     fontSize: 30,
-    fontWeight: 'bold',
+    fontWeight: FONT_WEIGHTS.bold,
     color: COLORS.gray900,
-    fontFamily: 'System',
+    fontFamily: FONTS.mono,
   },
   taskText: {
     fontSize: FONT_SIZES.xs,

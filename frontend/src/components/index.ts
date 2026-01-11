@@ -7,3 +7,5 @@ export { CircularProgress } from './CircularProgress';
 export { MemberCard } from './MemberCard';
 export { ReportDonutChart } from './ReportDonutChart';
 export { WriteReportModal } from './WriteReportModal';
+export { ProfileModal } from './ProfileModal';
+export { FocusModeModal } from './FocusModeModal';
