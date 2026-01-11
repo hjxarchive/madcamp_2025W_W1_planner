@@ -52,7 +52,8 @@ async function bootstrap() {
 
   // Swagger UI 설정 (OpenAPI YAML 파일 사용)
   try {
-    const openApiPath = path.join(__dirname, 'openapi.yaml');
+    // dist/openapi.yaml (nest-cli assets로 복사됨)
+    const openApiPath = path.join(__dirname, '..', 'openapi.yaml');
     const openApiDocument = yaml.load(fs.readFileSync(openApiPath, 'utf8'));
     app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(openApiDocument));
     console.log('📚 Swagger UI: http://localhost:3000/api-docs');
