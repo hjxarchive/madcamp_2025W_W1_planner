@@ -9,7 +9,10 @@ import {
   KeyboardAvoidingView,
   Platform,
   Pressable,
+  Dimensions,
 } from 'react-native';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 import MaterialDesignIcons from '@react-native-vector-icons/material-design-icons';
 const Icon = MaterialDesignIcons;
 import { COLORS, FONT_SIZES, FONTS, FONT_WEIGHTS, SPACING, BORDER_RADIUS } from '@constants/index';
@@ -155,8 +158,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
   modalContainer: {
-    width: '90%',
-    maxWidth: 360,
+    width: Math.min(SCREEN_WIDTH - 32, 500),
     minHeight: 500,
     backgroundColor: COLORS.surface,
     borderRadius: BORDER_RADIUS['2xl'],

@@ -12,7 +12,7 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import MaterialDesignIcons from '@react-native-vector-icons/material-design-icons';
 const Icon = MaterialDesignIcons;
-import { TotalTimeDisplay, TaskItem, ProjectCard, FloatingTimer, ProfileModal, FocusModeModal } from '@components/index';
+import { TotalTimeDisplay, TaskItem, ProjectCard, FloatingTimer, ProfileModal, FocusModeModal, CreateProjectModal } from '@components/index';
 import { api } from '@services/api';
 import { COLORS, FONT_SIZES, FONTS, FONT_WEIGHTS, SPACING, BORDER_RADIUS, formatTime, formatTimeShort } from '@constants/index';
 import type { RootStackParamList } from '@navigation/RootNavigator';
@@ -83,6 +83,9 @@ export const HomeScreen: React.FC = () => {
 
   // Focus mode state
   const [showFocusMode, setShowFocusMode] = useState(false);
+
+  // Create project modal state
+  const [showCreateProject, setShowCreateProject] = useState(false);
 
   // 전체 시간 계산
   const totalTimeMs = projects.reduce((sum, p) => sum + p.totalTimeMs, 0);
@@ -225,13 +228,17 @@ export const HomeScreen: React.FC = () => {
 
   // 프로젝트 클릭
   const handleProjectPress = (project: Project) => {
-    navigation.navigate('ProjectDetail', { project });
+    navigation.navigate('ProjectDetail', { projectId: project.id });
   };
 
   // 새 프로젝트 생성
   const handleCreateProject = () => {
-    // TODO: Open create project modal
-    console.log('Create project');
+    setShowCreateProject(true);
+  };
+
+  // 프로젝트 생성 완료 후 목록 새로고침
+  const handleProjectCreated = () => {
+    loadData();
   };
 
   // 프로필 보기
@@ -375,6 +382,14 @@ export const HomeScreen: React.FC = () => {
         task={currentTask}
         elapsedTime={elapsedTime}
         onStop={handleStopTimer}
+      />
+
+      {/* Create Project Modal */}
+      <CreateProjectModal
+        isOpen={showCreateProject}
+        onClose={() => setShowCreateProject(false)}
+        onProjectCreated={handleProjectCreated}
+        currentUser={user}
       />
     </SafeAreaView>
   );

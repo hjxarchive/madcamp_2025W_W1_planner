@@ -24,7 +24,7 @@ const App: React.FC = () => {
       if (token) {
         api.setToken(token);
         // Verify token is still valid
-        const profile = await api.getProfile();
+        const profile = await api.getMe();
         if (profile.data) {
           setIsAuthenticated(true);
         } else {

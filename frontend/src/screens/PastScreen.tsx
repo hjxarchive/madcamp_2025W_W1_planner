@@ -189,8 +189,8 @@ export const PastScreen: React.FC = () => {
   const loadPastProjects = useCallback(async () => {
     try {
       const res = await api.getPastProjects();
-      if (res.data) {
-        const transformed = res.data.map(transformProjectSummary);
+      if (res.data && res.data.data) {
+        const transformed = res.data.data.map(transformProjectSummary);
         setProjects(transformed);
       }
     } catch (error) {

@@ -9,3 +9,5 @@ export { ReportDonutChart } from './ReportDonutChart';
 export { WriteReportModal } from './WriteReportModal';
 export { ProfileModal } from './ProfileModal';
 export { FocusModeModal } from './FocusModeModal';
+export { CreateProjectModal } from './CreateProjectModal';
+export { AddTaskModal } from './AddTaskModal';

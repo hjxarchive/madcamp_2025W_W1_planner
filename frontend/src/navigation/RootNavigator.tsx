@@ -7,7 +7,7 @@ import { COLORS } from '@constants/index';
 // Define the param list for type safety
 export type RootStackParamList = {
   MainTabs: undefined;
-  ProjectDetail: { projectId?: string; project?: any };
+  ProjectDetail: { projectId: string };
   AddTask: undefined;
   AddProject: undefined;
   Settings: undefined;

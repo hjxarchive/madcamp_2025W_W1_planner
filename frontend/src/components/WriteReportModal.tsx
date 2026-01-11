@@ -9,7 +9,10 @@ import {
   TextInput,
   KeyboardAvoidingView,
   Platform,
+  Dimensions,
 } from 'react-native';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 import MaterialDesignIcons from '@react-native-vector-icons/material-design-icons';
 const Icon = MaterialDesignIcons;
 import { ReportDonutChart } from './ReportDonutChart';
@@ -53,17 +56,20 @@ export const WriteReportModal: React.FC<WriteReportModalProps> = ({
   const [rating, setRating] = useState(5);
   const [memo, setMemo] = useState('');
 
-  if (!project) return null;
+  // 디버깅: 조건 체크 전에 로그
+  console.log('WriteReportModal render:', { isOpen, hasProject: !!project });
+
+  if (!isOpen || !project) return null;
 
   const completedTasks = project.tasks.filter(t => t.isDone);
   const tasksWithTime = completedTasks.filter(t => t.durationMs > 0);
 
   const handleRatingChange = (text: string) => {
     const value = parseInt(text);
-    if (!isNaN(value) && value >= 0 && value <= 5) {
+    if (!isNaN(value) && value >= 1 && value <= 5) {
       setRating(value);
     } else if (text === '') {
-      setRating(0);
+      setRating(1);
     }
   };
 
@@ -96,121 +102,100 @@ export const WriteReportModal: React.FC<WriteReportModalProps> = ({
     );
   };
 
+  // 간단한 테스트 Modal
   return (
     <Modal
-      visible={isOpen}
-      animationType="slide"
+      visible={true}
+      animationType="fade"
       transparent={true}
       onRequestClose={onClose}
     >
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.modalOverlay}
-      >
-        <View style={styles.modalContainer}>
-          <ScrollView
-            style={styles.scrollView}
-            contentContainerStyle={styles.scrollContent}
-            showsVerticalScrollIndicator={false}
-          >
-            {/* Header */}
-            <View style={styles.header}>
-              <Text style={styles.headerTitle}>보고서 작성</Text>
-              <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-                <Icon name="close" size={24} color={COLORS.textMuted} />
-              </TouchableOpacity>
-            </View>
-
-            {/* Project Info */}
-            <View style={styles.projectInfo}>
-              <Text style={styles.projectTitle}>{project.title}</Text>
-              <Text style={styles.totalTimeLabel}>총 소요시간</Text>
-              <Text style={styles.totalTime}>{formatTime(project.totalTimeMs)}</Text>
-            </View>
-
-            {/* Donut Chart */}
-            <View style={styles.chartContainer}>
-              <ReportDonutChart
-                tasks={tasksWithTime}
-                totalTimeMs={project.totalTimeMs}
-                size={200}
-                showLabels={false}
-              />
-            </View>
-
-            {/* Completed Tasks List */}
-            <View style={styles.taskListSection}>
-              <Text style={styles.sectionLabel}>
-                진행한 Task ({completedTasks.length})
-              </Text>
-              <View style={styles.taskListContainer}>
-                {completedTasks.length > 0 ? (
-                  completedTasks.map(task => (
-                    <View key={task.id} style={styles.taskItem}>
-                      <View style={styles.taskLeft}>
-                        <Icon name="check-circle" size={18} color={COLORS.success} />
-                        <Text style={styles.taskContent} numberOfLines={1}>
-                          {task.content}
-                        </Text>
-                      </View>
-                      {task.durationMs > 0 && (
-                        <Text style={styles.taskDuration}>
-                          {formatTimeShort(task.durationMs)}
-                        </Text>
-                      )}
-                    </View>
-                  ))
-                ) : (
-                  <Text style={styles.emptyTaskText}>완료된 Task가 없습니다</Text>
-                )}
-              </View>
-            </View>
-
-            {/* Rating */}
-            <View style={styles.ratingSection}>
-              <Text style={styles.sectionLabel}>평점</Text>
-              <View style={styles.ratingRow}>
-                <TextInput
-                  style={styles.ratingInput}
-                  value={String(rating)}
-                  onChangeText={handleRatingChange}
-                  keyboardType="number-pad"
-                  maxLength={1}
+      <View style={{
+        flex: 1,
+        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+        justifyContent: 'center',
+        alignItems: 'center',
+      }}>
+        <View style={{
+          backgroundColor: 'white',
+          borderRadius: 16,
+          padding: 24,
+          width: SCREEN_WIDTH - 48,
+          maxHeight: '80%',
+        }}>
+          <Text style={{ fontSize: 18, fontWeight: 'bold', marginBottom: 16 }}>
+            보고서 작성
+          </Text>
+          <Text style={{ fontSize: 16, marginBottom: 8 }}>
+            프로젝트: {project.title}
+          </Text>
+          <Text style={{ fontSize: 14, color: '#666', marginBottom: 16 }}>
+            총 소요시간: {formatTime(project.totalTimeMs)}
+          </Text>
+          
+          <Text style={{ fontSize: 14, marginBottom: 8 }}>평점: {rating} / 5</Text>
+          <View style={{ flexDirection: 'row', marginBottom: 16 }}>
+            {[1, 2, 3, 4, 5].map(star => (
+              <TouchableOpacity key={star} onPress={() => setRating(star)} style={{ padding: 4 }}>
+                <Icon
+                  name={star <= rating ? 'star' : 'star-outline'}
+                  size={28}
+                  color={star <= rating ? '#FACC15' : '#D1D5DB'}
                 />
-                <Text style={styles.ratingDivider}>/ 5</Text>
-                {renderStars()}
-              </View>
-            </View>
+              </TouchableOpacity>
+            ))}
+          </View>
 
-            {/* Buttons */}
-            <View style={styles.buttonRow}>
-              <TouchableOpacity style={styles.cancelButton} onPress={onClose}>
-                <Text style={styles.cancelButtonText}>나중에</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
-                <Text style={styles.saveButtonText}>저장하기</Text>
-              </TouchableOpacity>
-            </View>
-          </ScrollView>
+          <View style={{ flexDirection: 'row', gap: 12 }}>
+            <TouchableOpacity 
+              onPress={onClose}
+              style={{
+                flex: 1,
+                paddingVertical: 12,
+                borderRadius: 8,
+                borderWidth: 1,
+                borderColor: '#D1D5DB',
+                alignItems: 'center',
+              }}
+            >
+              <Text style={{ color: '#666' }}>취소</Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              onPress={handleSave}
+              style={{
+                flex: 1,
+                paddingVertical: 12,
+                borderRadius: 8,
+                backgroundColor: '#16A34A',
+                alignItems: 'center',
+              }}
+            >
+              <Text style={{ color: 'white', fontWeight: '600' }}>저장</Text>
+            </TouchableOpacity>
+          </View>
         </View>
-      </KeyboardAvoidingView>
+      </View>
     </Modal>
   );
 };
 
 const styles = StyleSheet.create({
-  modalOverlay: {
+  overlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: SPACING.base,
   },
   modalContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: SPACING.base,
+  },
+  modal: {
     backgroundColor: COLORS.surface,
     borderRadius: BORDER_RADIUS.xl,
-    width: '100%',
-    maxWidth: 400,
+    width: Math.min(SCREEN_WIDTH - 32, 500),
     maxHeight: '90%',
   },
   scrollView: {

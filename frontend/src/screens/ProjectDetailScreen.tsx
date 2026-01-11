@@ -16,6 +16,7 @@ import { MemberCard } from '@components/MemberCard';
 import { TaskItem } from '@components/TaskItem';
 import { FloatingTimer } from '@components/FloatingTimer';
 import { WriteReportModal } from '@components/WriteReportModal';
+import { AddTaskModal } from '@components/AddTaskModal';
 import { api } from '@services/api';
 import { COLORS, FONT_SIZES, SPACING, BORDER_RADIUS, formatTime, formatDate } from '@constants/index';
 import type { Project, Task, Member } from '../types';
@@ -381,8 +382,9 @@ export const ProjectDetailScreen: React.FC<ProjectDetailScreenProps> = ({ route 
   const [currentTask, setCurrentTask] = useState<Task | null>(null);
   const [activeTimeLogId, setActiveTimeLogId] = useState<string | null>(null);
   
-  // Report modal state
+  // Modal states
   const [showWriteReport, setShowWriteReport] = useState(false);
+  const [showAddTask, setShowAddTask] = useState(false);
 
   // Load project from API
   const loadProject = useCallback(async (projectId: string) => {
@@ -400,10 +402,7 @@ export const ProjectDetailScreen: React.FC<ProjectDetailScreenProps> = ({ route 
 
   // Load project
   useEffect(() => {
-    if (routeParams?.project) {
-      setProject(routeParams.project);
-      setIsLoading(false);
-    } else if (routeParams?.projectId) {
+    if (routeParams?.projectId) {
       loadProject(routeParams.projectId);
     } else {
       setIsLoading(false);
@@ -514,29 +513,28 @@ export const ProjectDetailScreen: React.FC<ProjectDetailScreenProps> = ({ route 
     setActiveTimeLogId(null);
   }, [project, currentTaskId, elapsedTime, activeTimeLogId]);
 
-  const handleAddTask = useCallback(async () => {
+  const handleAddTask = useCallback(() => {
+    setShowAddTask(true);
+  }, []);
+
+  const handleAddTaskSubmit = useCallback(async (taskData: { content: string; assigneeId?: string; assigneeName?: string }) => {
     if (!project) return;
     
-    // TODO: Task 추가 모달 열기
-    Alert.prompt(
-      'Task 추가',
-      '새 Task 내용을 입력하세요',
-      async (text) => {
-        if (text && text.trim()) {
-          try {
-            const res = await api.createChecklist(project.id, { content: text.trim() });
-            if (res.data) {
-              // 프로젝트 다시 로드
-              loadProject(project.id);
-            }
-          } catch (error) {
-            console.error('Task 추가 실패:', error);
-            Alert.alert('오류', 'Task 추가에 실패했습니다.');
-          }
-        }
-      },
-      'plain-text'
-    );
+    try {
+      const res = await api.createChecklist(project.id, { 
+        content: taskData.content,
+        assigneeId: taskData.assigneeId,
+      });
+      if (res.data) {
+        // 프로젝트 다시 로드
+        loadProject(project.id);
+      } else if (res.error) {
+        Alert.alert('오류', res.error);
+      }
+    } catch (error) {
+      console.error('Task 추가 실패:', error);
+      Alert.alert('오류', 'Task 추가에 실패했습니다.');
+    }
   }, [project, loadProject]);
 
   const handleWriteReport = useCallback(() => {
@@ -549,18 +547,8 @@ export const ProjectDetailScreen: React.FC<ProjectDetailScreenProps> = ({ route 
     try {
       const res = await api.completeProject(project.id, { rating: reportData.rating });
       if (res.data) {
-        setProject(prev => {
-          if (!prev) return prev;
-          return {
-            ...prev,
-            report: {
-              rating: reportData.rating,
-              createdAt: new Date(),
-              totalTimeMs: prev.totalTimeMs,
-              completedTasks: prev.tasks.filter(t => t.isDone).length,
-            },
-          };
-        });
+        // 프로젝트를 다시 로드하여 최신 상태 반영
+        await loadProject(project.id);
         // 보고서 저장 후 메인 페이지로 이동
         navigation.goBack();
       }
@@ -568,7 +556,7 @@ export const ProjectDetailScreen: React.FC<ProjectDetailScreenProps> = ({ route 
       console.error('보고서 저장 실패:', error);
       Alert.alert('오류', '보고서 저장에 실패했습니다.');
     }
-  }, [project, navigation]);
+  }, [project, navigation, loadProject]);
 
   if (!project) {
     return (
@@ -599,7 +587,7 @@ export const ProjectDetailScreen: React.FC<ProjectDetailScreenProps> = ({ route 
   };
 
   return (
-    <>
+    <View style={{ flex: 1 }}>
       {isTeamProject ? (
         <TeamProjectPage {...commonProps} />
       ) : (
@@ -613,7 +601,15 @@ export const ProjectDetailScreen: React.FC<ProjectDetailScreenProps> = ({ route 
         project={project}
         onSave={handleSaveReport}
       />
-    </>
+
+      {/* Add Task Modal */}
+      <AddTaskModal
+        isOpen={showAddTask}
+        onClose={() => setShowAddTask(false)}
+        onAdd={handleAddTaskSubmit}
+        members={project.members}
+      />
+    </View>
   );
 };
 
