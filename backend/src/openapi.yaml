@@ -1,0 +1,1119 @@
+openapi: 3.0.3
+info:
+  title: Momento API
+  description: 프로젝트 관리 및 스터디 세션 추적 앱 API
+  version: 1.0.0
+  contact:
+    name: Momento Team
+
+servers:
+  - url: http://localhost:3000/api
+    description: Development
+  - url: http://172.10.5.61:3000/api
+    description: Production
+
+tags:
+  - name: Users
+    description: 사용자 관리
+  - name: Projects
+    description: 프로젝트 관리
+  - name: Project Members
+    description: 프로젝트 멤버 관리
+  - name: Checklists
+    description: 체크리스트(Task) 관리
+  - name: Time Logs
+    description: 시간 기록 관리
+  - name: Locations
+    description: 스터디 장소 관리
+  - name: Study Sessions
+    description: 스터디 세션 참가/퇴장
+  - name: Receipts
+    description: 일일 영수증 관리
+
+security:
+  - BearerAuth: []
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: Firebase ID Token
+      description: Firebase Authentication ID Token
+
+  schemas:
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        firebaseUid:
+          type: string
+        nickname:
+          type: string
+        profileEmoji:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    UserSearchResult:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        nickname:
+          type: string
+        profileEmoji:
+          type: string
+
+    CreateUserDto:
+      type: object
+      required:
+        - nickname
+      properties:
+        nickname:
+          type: string
+          example: 사용자닉네임
+        profileEmoji:
+          type: string
+          example: "😀"
+
+    UpdateUserDto:
+      type: object
+      properties:
+        nickname:
+          type: string
+        profileEmoji:
+          type: string
+
+    Project:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        coverImageUrl:
+          type: string
+          nullable: true
+        plannedStartDate:
+          type: string
+          format: date
+        plannedEndDate:
+          type: string
+          format: date
+        status:
+          type: string
+          enum: [ACTIVE, PENDING_REVIEW, COMPLETED]
+        rating:
+          type: integer
+          minimum: 1
+          maximum: 5
+          nullable: true
+        completedAt:
+          type: string
+          format: date-time
+          nullable: true
+        memberCount:
+          type: integer
+        completedChecklistCount:
+          type: integer
+        totalChecklistCount:
+          type: integer
+        totalTimeMinutes:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+
+    ProjectDetail:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        coverImageUrl:
+          type: string
+          nullable: true
+        plannedStartDate:
+          type: string
+          format: date
+        plannedEndDate:
+          type: string
+          format: date
+        rating:
+          type: integer
+          nullable: true
+        members:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProjectMember'
+        checklists:
+          type: array
+          items:
+            $ref: '#/components/schemas/Checklist'
+        createdAt:
+          type: string
+          format: date-time
+
+    ProjectMember:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        nickname:
+          type: string
+        profileEmoji:
+          type: string
+        role:
+          type: string
+          enum: [owner, member]
+
+    CreateProjectDto:
+      type: object
+      required:
+        - title
+        - plannedStartDate
+        - plannedEndDate
+      properties:
+        title:
+          type: string
+          example: 프로젝트 제목
+        coverImageUrl:
+          type: string
+          nullable: true
+        plannedStartDate:
+          type: string
+          format: date
+          example: "2025-01-01"
+        plannedEndDate:
+          type: string
+          format: date
+          example: "2025-01-31"
+        memberNicknames:
+          type: array
+          items:
+            type: string
+          description: 협업 프로젝트인 경우 팀원 닉네임 배열
+
+    UpdateProjectDto:
+      type: object
+      properties:
+        title:
+          type: string
+        coverImageUrl:
+          type: string
+        plannedStartDate:
+          type: string
+          format: date
+        plannedEndDate:
+          type: string
+          format: date
+        rating:
+          type: integer
+          minimum: 1
+          maximum: 5
+
+    CompleteProjectDto:
+      type: object
+      required:
+        - rating
+      properties:
+        rating:
+          type: integer
+          minimum: 1
+          maximum: 5
+
+    AddMemberDto:
+      type: object
+      required:
+        - userId
+      properties:
+        userId:
+          type: string
+          format: uuid
+        role:
+          type: string
+          enum: [member]
+          default: member
+
+    Checklist:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        content:
+          type: string
+        isCompleted:
+          type: boolean
+        assigneeId:
+          type: string
+          format: uuid
+          nullable: true
+        assigneeNickname:
+          type: string
+          nullable: true
+        displayOrder:
+          type: integer
+        totalTimeMinutes:
+          type: integer
+
+    CreateChecklistDto:
+      type: object
+      required:
+        - content
+      properties:
+        content:
+          type: string
+          example: 체크리스트 항목 내용
+        assigneeId:
+          type: string
+          format: uuid
+        displayOrder:
+          type: integer
+          default: 0
+
+    UpdateChecklistDto:
+      type: object
+      properties:
+        content:
+          type: string
+        isCompleted:
+          type: boolean
+        assigneeId:
+          type: string
+          format: uuid
+        displayOrder:
+          type: integer
+
+    TimeLog:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        checklistId:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        startedAt:
+          type: string
+          format: date-time
+        endedAt:
+          type: string
+          format: date-time
+          nullable: true
+        durationMinutes:
+          type: integer
+          nullable: true
+
+    TodaySummary:
+      type: object
+      properties:
+        date:
+          type: string
+          format: date
+        totalMinutes:
+          type: integer
+        completedTasksCount:
+          type: integer
+        projects:
+          type: array
+          items:
+            type: object
+            properties:
+              projectId:
+                type: string
+                format: uuid
+              projectTitle:
+                type: string
+              minutes:
+                type: integer
+              completedTasksCount:
+                type: integer
+        timeLogs:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+                format: uuid
+              checklistId:
+                type: string
+                format: uuid
+              checklistContent:
+                type: string
+              projectId:
+                type: string
+                format: uuid
+              projectTitle:
+                type: string
+              startedAt:
+                type: string
+                format: date-time
+              endedAt:
+                type: string
+                format: date-time
+              durationMinutes:
+                type: integer
+        completedTasks:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+                format: uuid
+              content:
+                type: string
+              projectId:
+                type: string
+                format: uuid
+              projectTitle:
+                type: string
+              completedAt:
+                type: string
+                format: date-time
+              totalTimeMinutes:
+                type: integer
+
+    Location:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+
+    CreateLocationDto:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          example: N1 도서관
+
+    LocationParticipants:
+      type: object
+      properties:
+        location:
+          $ref: '#/components/schemas/Location'
+        participants:
+          type: array
+          items:
+            type: object
+            properties:
+              userId:
+                type: string
+                format: uuid
+              nickname:
+                type: string
+              profileEmoji:
+                type: string
+              currentProject:
+                type: string
+                nullable: true
+              todayTotalMinutes:
+                type: integer
+              joinedAt:
+                type: string
+                format: date-time
+
+    StudySession:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        locationId:
+          type: string
+          format: uuid
+        joinedAt:
+          type: string
+          format: date-time
+        leftAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    Receipt:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        date:
+          type: string
+          format: date
+        imageUrl:
+          type: string
+        totalMinutes:
+          type: integer
+        completedTasksCount:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+
+    CreateReceiptDto:
+      type: object
+      required:
+        - date
+        - imageUrl
+      properties:
+        date:
+          type: string
+          format: date
+          example: "2025-01-10"
+        imageUrl:
+          type: string
+
+    PaginatedResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items: {}
+        meta:
+          type: object
+          properties:
+            total:
+              type: integer
+            page:
+              type: integer
+            limit:
+              type: integer
+
+    Error:
+      type: object
+      properties:
+        statusCode:
+          type: integer
+        message:
+          type: string
+        error:
+          type: string
+
+paths:
+  # ===== Users =====
+  /users/me:
+    get:
+      tags: [Users]
+      summary: 내 정보 조회
+      responses:
+        '200':
+          description: 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '404':
+          description: 사용자를 찾을 수 없습니다
+
+    patch:
+      tags: [Users]
+      summary: 내 정보 수정
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateUserDto'
+      responses:
+        '200':
+          description: 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+
+  /users:
+    post:
+      tags: [Users]
+      summary: 회원가입 (최초 로그인 시)
+      description: firebaseUid는 Authorization 헤더의 Firebase ID Token에서 서버가 자동 추출합니다.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateUserDto'
+      responses:
+        '201':
+          description: 생성 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+
+  /users/search:
+    get:
+      tags: [Users]
+      summary: 닉네임으로 사용자 검색
+      description: UI 자동완성/실시간 검증용
+      parameters:
+        - name: nickname
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserSearchResult'
+        '404':
+          description: 사용자를 찾을 수 없습니다
+
+  # ===== Projects =====
+  /projects/current:
+    get:
+      tags: [Projects]
+      summary: 진행 중인 프로젝트 조회
+      description: status가 ACTIVE 또는 PENDING_REVIEW인 프로젝트
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: 성공
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PaginatedResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Project'
+
+  /projects/past:
+    get:
+      tags: [Projects]
+      summary: 완료된 프로젝트 조회
+      description: status가 COMPLETED인 프로젝트만 반환 (보고서 탭)
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: 성공
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PaginatedResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Project'
+
+  /projects:
+    post:
+      tags: [Projects]
+      summary: 프로젝트 생성
+      description: |
+        개인 프로젝트: memberNicknames 생략 또는 빈 배열 → 생성자만 멤버로 추가
+        협업 프로젝트: memberNicknames에 함께할 사용자 닉네임 배열 전달
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateProjectDto'
+      responses:
+        '201':
+          description: 생성 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectDetail'
+        '404':
+          description: 존재하지 않는 닉네임
+
+  /projects/{id}:
+    get:
+      tags: [Projects]
+      summary: 프로젝트 상세 조회
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectDetail'
+        '404':
+          description: 프로젝트를 찾을 수 없습니다
+
+    patch:
+      tags: [Projects]
+      summary: 프로젝트 수정
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateProjectDto'
+      responses:
+        '200':
+          description: 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectDetail'
+
+    delete:
+      tags: [Projects]
+      summary: 프로젝트 삭제
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: 삭제 성공
+
+  /projects/{id}/complete:
+    post:
+      tags: [Projects]
+      summary: 프로젝트 완료 (보고서 작성)
+      description: 프로젝트를 완료 처리하고 보고서(평점)를 저장합니다.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CompleteProjectDto'
+      responses:
+        '200':
+          description: 성공
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+                  title:
+                    type: string
+                  rating:
+                    type: integer
+                  completedAt:
+                    type: string
+                    format: date-time
+                  totalTimeMinutes:
+                    type: integer
+                  message:
+                    type: string
+        '400':
+          description: 이미 완료된 프로젝트입니다
+
+  # ===== Project Members =====
+  /projects/{projectId}/members:
+    post:
+      tags: [Project Members]
+      summary: 멤버 추가
+      description: 먼저 GET /api/users/search?nickname=...으로 사용자를 검색한 후, 해당 userId로 멤버를 추가합니다.
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddMemberDto'
+      responses:
+        '201':
+          description: 추가 성공
+
+  /projects/{projectId}/members/{userId}:
+    delete:
+      tags: [Project Members]
+      summary: 멤버 삭제
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: 삭제 성공
+
+  # ===== Checklists =====
+  /projects/{projectId}/checklists:
+    post:
+      tags: [Checklists]
+      summary: 체크리스트 추가
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateChecklistDto'
+      responses:
+        '201':
+          description: 생성 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Checklist'
+
+  /checklists/{id}:
+    patch:
+      tags: [Checklists]
+      summary: 체크리스트 수정
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateChecklistDto'
+      responses:
+        '200':
+          description: 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Checklist'
+
+    delete:
+      tags: [Checklists]
+      summary: 체크리스트 삭제
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: 삭제 성공
+
+  # ===== Time Logs =====
+  /checklists/{checklistId}/time-logs/start:
+    post:
+      tags: [Time Logs]
+      summary: 타이머 시작
+      parameters:
+        - name: checklistId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '201':
+          description: 시작 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TimeLog'
+
+  /time-logs/{id}/stop:
+    post:
+      tags: [Time Logs]
+      summary: 타이머 정지
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: 정지 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TimeLog'
+
+  /time-logs/today:
+    get:
+      tags: [Time Logs]
+      summary: 오늘 활동 요약 조회
+      description: 오늘의 모든 활동 기록을 조회합니다. 메인 탭 표시 및 일일 영수증 생성에 사용됩니다.
+      responses:
+        '200':
+          description: 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TodaySummary'
+
+  # ===== Locations =====
+  /locations:
+    get:
+      tags: [Locations]
+      summary: 장소 목록 조회
+      responses:
+        '200':
+          description: 성공
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Location'
+
+    post:
+      tags: [Locations]
+      summary: 장소 생성
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateLocationDto'
+      responses:
+        '201':
+          description: 생성 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Location'
+
+  /locations/{locationId}/participants:
+    get:
+      tags: [Locations]
+      summary: 특정 장소의 참가자 조회
+      parameters:
+        - name: locationId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LocationParticipants'
+
+  # ===== Study Sessions =====
+  /locations/{locationId}/join:
+    post:
+      tags: [Study Sessions]
+      summary: 스터디 세션 참가
+      parameters:
+        - name: locationId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '201':
+          description: 참가 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StudySession'
+
+  /study-sessions/{id}/leave:
+    post:
+      tags: [Study Sessions]
+      summary: 스터디 세션 퇴장
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: 퇴장 성공
+
+  # ===== Receipts =====
+  /receipts:
+    get:
+      tags: [Receipts]
+      summary: 영수증 목록 조회 (아카이브 탭)
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: 성공
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PaginatedResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Receipt'
+
+    post:
+      tags: [Receipts]
+      summary: 영수증 생성/갱신
+      description: 새 영수증을 생성하거나, 해당 날짜의 영수증이 이미 있으면 갱신합니다.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateReceiptDto'
+      responses:
+        '201':
+          description: 생성 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Receipt'
+        '200':
+          description: 갱신 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Receipt'
+
+  /receipts/{date}:
+    get:
+      tags: [Receipts]
+      summary: 특정 날짜 영수증 조회
+      parameters:
+        - name: date
+          in: path
+          required: true
+          description: 조회할 날짜 (YYYY-MM-DD 형식)
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Receipt'
+        '404':
+          description: 해당 날짜의 영수증이 없습니다
+
+    delete:
+      tags: [Receipts]
+      summary: 영수증 삭제
+      parameters:
+        - name: date
+          in: path
+          required: true
+          schema:
+            type: string
+            format: date
+      responses:
+        '204':
+          description: 삭제 성공

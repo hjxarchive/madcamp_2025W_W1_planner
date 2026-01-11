@@ -2,6 +2,10 @@ import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { AppModule } from './app.module';
 import * as admin from 'firebase-admin';
+import * as swaggerUi from 'swagger-ui-express';
+import * as yaml from 'js-yaml';
+import * as fs from 'fs';
+import * as path from 'path';
 
 async function bootstrap() {
   // Firebase Admin 초기화 (프로덕션 환경에서만 필수)
@@ -45,6 +49,16 @@ async function bootstrap() {
       forbidNonWhitelisted: true,
     }),
   );
+
+  // Swagger UI 설정 (OpenAPI YAML 파일 사용)
+  try {
+    const openApiPath = path.join(__dirname, 'openapi.yaml');
+    const openApiDocument = yaml.load(fs.readFileSync(openApiPath, 'utf8'));
+    app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(openApiDocument));
+    console.log('📚 Swagger UI: http://localhost:3000/api-docs');
+  } catch (error) {
+    console.warn('⚠️ OpenAPI 문서를 로드할 수 없습니다:', error.message);
+  }
 
   const port = process.env.PORT ?? 3000;
   await app.listen(port);
