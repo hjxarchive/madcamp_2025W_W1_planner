@@ -93,6 +93,7 @@ PostgreSQL 16.x를 사용하며, Prisma ORM을 통해 데이터베이스에 접�
 
 **인덱스**
 - `firebase_uid` (UNIQUE)
+- `nickname` (UNIQUE)
 
 ---
 
@@ -120,12 +121,21 @@ PostgreSQL 16.x를 사용하며, Prisma ORM을 통해 데이터베이스에 접�
 | planned_start_date | DATE | - | 계획 시작일 |
 | planned_end_date | DATE | - | 계획 종료일 |
 | created_by | UUID | FK → users.id, NOT NULL | 프로젝트 생성자 |
-| rating | SMALLINT | - | 평점 (0~10), null이면 미평가 |
+| status | ENUM | NOT NULL, DEFAULT 'ACTIVE' | 상태 (ACTIVE/PENDING_REVIEW/COMPLETED) |
+| rating | SMALLINT | - | 평점 (1~5), null이면 미평가 |
+| completed_at | TIMESTAMP | - | 완료 시각 |
 | created_at | TIMESTAMP | NOT NULL, DEFAULT NOW() | 생성 시각 |
 | updated_at | TIMESTAMP | NOT NULL, DEFAULT NOW() | 수정 시각 |
 
+**상태 (status) 설명**
+| 상태 | 설명 | 조건 |
+|------|------|------|
+| ACTIVE | 진행 중 | 체크리스트 미완료 |
+| PENDING_REVIEW | 평가 대기 | 체크리스트 완료, 평점 없음 |
+| COMPLETED | 완료 | 평점 있음 |
+
 **인덱스**
-- `created_by`
+- `(created_by, status)` - 상태별 프로젝트 조회 최적화
 - `created_at`
 
 ---
@@ -220,9 +230,35 @@ PostgreSQL 16.x를 사용하며, Prisma ORM을 통해 데이터베이스에 접�
 
 ---
 
+### daily_receipts
+
+일일 영수증 정보를 저장합니다. 아카이브 탭에서 사용됩니다.
+
+| 컬럼 | 타입 | 제약조건 | 설명 |
+|------|------|----------|------|
+| id | UUID | PK | 고유 식별자 |
+| user_id | UUID | FK → users.id, NOT NULL | 사용자 |
+| date | DATE | NOT NULL | 영수증 날짜 |
+| image_url | VARCHAR(500) | - | 저장된 영수증 이미지 URL |
+| total_minutes | INT | NOT NULL, DEFAULT 0 | 총 작업 시간 (분) |
+| completed_tasks_count | INT | NOT NULL, DEFAULT 0 | 완료한 Task 수 |
+| created_at | TIMESTAMP | NOT NULL, DEFAULT NOW() | 생성 시각 |
+| updated_at | TIMESTAMP | NOT NULL, DEFAULT NOW() | 수정 시각 |
+
+**인덱스**
+- `(user_id, date)` (UNIQUE) - 사용자별 날짜당 하나의 영수증
+- `(user_id, date)` - 영수증 조회 최적화
+
+**비즈니스 로직**
+- 사용자가 '영수증 추가' 버튼 클릭 시 생성
+- 매일 KST 0시에 자동 생성 (서버 스케줄러)
+- `total_minutes`와 `completed_tasks_count`는 해당 날짜의 time_logs와 checklists 기반으로 계산
+
+---
+
 ## 주요 쿼리 패턴
 
-### 진행 중인 프로젝트 조회 (개인 + 협업 모두)
+### 진행 중인 프로젝트 조회 (ACTIVE + PENDING_REVIEW)
 
 ```sql
 SELECT p.*, 
@@ -231,23 +267,26 @@ FROM projects p
 INNER JOIN project_members pm ON pm.project_id = p.id
 LEFT JOIN project_members pm2 ON pm2.project_id = p.id
 WHERE pm.user_id = :userId
-AND EXISTS (
-    SELECT 1 FROM checklists c 
-    WHERE c.project_id = p.id AND c.is_completed = false
-)
+AND p.status IN ('ACTIVE', 'PENDING_REVIEW')
 GROUP BY p.id;
 ```
 
 > ℹ️ `member_count`로 개인(1명)/협업(2명 이상) 구분 가능
+> ℹ️ `status`로 평가 대기 프로젝트 구분 가능
 
-### 완료된 프로젝트 조회
+### 완료된 프로젝트 조회 (보고서 탭)
 
 ```sql
-SELECT p.* 
+SELECT p.*, 
+       COUNT(DISTINCT pm2.id) as member_count
 FROM projects p
 INNER JOIN project_members pm ON pm.project_id = p.id
+LEFT JOIN project_members pm2 ON pm2.project_id = p.id
 WHERE pm.user_id = :userId
-AND NOT EXISTS (
+AND p.status = 'COMPLETED'
+GROUP BY p.id
+ORDER BY p.completed_at DESC;
+```
 
 ### 오늘 작업 시간 집계
 
@@ -262,4 +301,14 @@ INNER JOIN projects p ON p.id = c.project_id
 WHERE tl.user_id = :userId
 AND DATE(tl.started_at) = CURRENT_DATE
 GROUP BY p.id, p.title;
+```
+
+### 영수증 목록 조회
+
+```sql
+SELECT *
+FROM daily_receipts
+WHERE user_id = :userId
+ORDER BY date DESC
+LIMIT :limit OFFSET :offset;
 ```

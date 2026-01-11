@@ -109,21 +109,31 @@ GET /api/users/search?nickname=검색할닉네임
 
 ## 📌 Projects
 
+### 프로젝트 상태 (status)
+
+| 상태 | 설명 | 조건 |
+|------|------|------|
+| `ACTIVE` | 진행 중 | 체크리스트 미완료 |
+| `PENDING_REVIEW` | 평가 대기 | 체크리스트 완료, 평점 없음 |
+| `COMPLETED` | 완료 | 평점 있음 |
+
 ### 프로젝트 목록 조회
 
-#### 진행 중인 프로젝트 (개인 + 협업)
+#### 진행 중인 프로젝트 (ACTIVE + PENDING_REVIEW)
 ```http
 GET /api/projects/current
 ```
-- 체크리스트가 모두 완료되지 않은 프로젝트
+- `status`가 `ACTIVE` 또는 `PENDING_REVIEW`인 프로젝트
 - 개인/협업 구분 없이 모두 반환
 - 프론트엔드에서 `memberCount`로 필터링 가능 (1명: 개인, 2명 이상: 협업)
+- 프론트엔드에서 `status`로 평가 대기 프로젝트 구분 가능
 
-#### 완료된 프로젝트
+#### 완료된 프로젝트 (보고서 탭)
 ```http
 GET /api/projects/past
 ```
-- 체크리스트가 모두 완료된 프로젝트
+- `status`가 `COMPLETED`인 프로젝트만 반환
+- 평점이 있는 프로젝트
 
 **Response**
 ```json
@@ -135,7 +145,9 @@ GET /api/projects/past
       "coverImageUrl": "https://...",
       "plannedStartDate": "2025-01-01",
       "plannedEndDate": "2025-01-31",
-      "rating": 8,
+      "status": "COMPLETED",
+      "rating": 4,
+      "completedAt": "2025-01-10T15:30:00.000Z",
       "memberCount": 3,
       "completedChecklistCount": 5,
       "totalChecklistCount": 10,
@@ -527,6 +539,113 @@ GET /api/locations/:locationId/participants
   ]
 }
 ```
+
+---
+
+## 📌 Daily Receipts (일일 영수증)
+
+### 영수증 목록 조회 (아카이브 탭)
+```http
+GET /api/receipts
+```
+
+사용자의 모든 일일 영수증 목록을 조회합니다.
+
+**Query Parameters**
+- `page` (optional): 페이지 번호 (기본값: 1)
+- `limit` (optional): 페이지당 개수 (기본값: 20)
+
+**Response**
+```json
+{
+  "data": [
+    {
+      "id": "uuid",
+      "date": "2025-01-10",
+      "imageUrl": "https://storage.../receipt-2025-01-10.png",
+      "totalMinutes": 420,
+      "completedTasksCount": 5,
+      "createdAt": "2025-01-10T23:59:00.000Z"
+    }
+  ],
+  "meta": {
+    "total": 30,
+    "page": 1,
+    "limit": 20
+  }
+}
+```
+
+### 특정 날짜 영수증 조회
+```http
+GET /api/receipts/:date
+```
+
+특정 날짜의 영수증을 조회합니다.
+
+**Path Parameters**
+- `date`: 조회할 날짜 (YYYY-MM-DD 형식)
+
+**Response (200 OK)**
+```json
+{
+  "id": "uuid",
+  "date": "2025-01-10",
+  "imageUrl": "https://storage.../receipt-2025-01-10.png",
+  "totalMinutes": 420,
+  "completedTasksCount": 5,
+  "createdAt": "2025-01-10T23:59:00.000Z"
+}
+```
+
+**Response (404 Not Found)** - 영수증 없음
+```json
+{
+  "statusCode": 404,
+  "message": "해당 날짜의 영수증이 없습니다",
+  "error": "Not Found"
+}
+```
+
+### 영수증 생성/갱신
+```http
+POST /api/receipts
+```
+
+새 영수증을 생성하거나, 해당 날짜의 영수증이 이미 있으면 갱신합니다.
+- 사용자가 수동으로 '영수증 추가' 버튼을 누를 때 호출
+- 매일 KST 0시에 자동 생성 (서버 스케줄러)
+
+**Request Body**
+```json
+{
+  "date": "2025-01-10",
+  "imageUrl": "https://storage.../receipt-2025-01-10.png"
+}
+```
+
+> ℹ️ `totalMinutes`와 `completedTasksCount`는 서버에서 해당 날짜의 time_logs와 checklists를 기반으로 자동 계산합니다.
+
+**Response (201 Created / 200 OK)**
+```json
+{
+  "id": "uuid",
+  "date": "2025-01-10",
+  "imageUrl": "https://storage.../receipt-2025-01-10.png",
+  "totalMinutes": 420,
+  "completedTasksCount": 5,
+  "createdAt": "2025-01-10T23:59:00.000Z"
+}
+```
+
+### 영수증 삭제
+```http
+DELETE /api/receipts/:date
+```
+
+특정 날짜의 영수증을 삭제합니다.
+
+**Response (204 No Content)**
 
 ---
 

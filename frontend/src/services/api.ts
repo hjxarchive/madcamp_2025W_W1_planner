@@ -34,13 +34,17 @@ export interface ChecklistItem {
   totalTimeMinutes: number;
 }
 
+export type ProjectStatus = 'ACTIVE' | 'PENDING_REVIEW' | 'COMPLETED';
+
 export interface ProjectSummary {
   id: string;
   title: string;
   coverImageUrl: string | null;
   plannedStartDate: string | null;
   plannedEndDate: string | null;
+  status: ProjectStatus;
   rating: number | null;
+  completedAt: string | null;
   memberCount: number;
   completedChecklistCount: number;
   totalChecklistCount: number;
@@ -54,7 +58,9 @@ export interface ProjectDetail {
   coverImageUrl: string | null;
   plannedStartDate: string | null;
   plannedEndDate: string | null;
+  status: ProjectStatus;
   rating: number | null;
+  completedAt: string | null;
   members: ProjectMember[];
   checklists: ChecklistItem[];
   createdAt: string;
@@ -123,6 +129,15 @@ export interface Participant {
   currentProject: string | null;
   todayTotalMinutes: number;
   joinedAt: string;
+}
+
+export interface DailyReceipt {
+  id: string;
+  date: string;
+  imageUrl: string | null;
+  totalMinutes: number;
+  completedTasksCount: number;
+  createdAt: string;
 }
 
 export interface PaginatedResponse<T> {
@@ -375,6 +390,32 @@ class ApiService {
       location: Location;
       participants: Participant[];
     }>(`/locations/${locationId}/participants`);
+  }
+
+  // ============ Daily Receipts API ============
+  
+  /** 영수증 목록 조회 (아카이브 탭) */
+  async getReceipts(page?: number, limit?: number) {
+    const params = new URLSearchParams();
+    if (page) params.append('page', page.toString());
+    if (limit) params.append('limit', limit.toString());
+    const query = params.toString() ? `?${params.toString()}` : '';
+    return this.get<PaginatedResponse<DailyReceipt>>(`/receipts${query}`);
+  }
+
+  /** 특정 날짜 영수증 조회 */
+  async getReceiptByDate(date: string) {
+    return this.get<DailyReceipt>(`/receipts/${date}`);
+  }
+
+  /** 영수증 생성/갱신 */
+  async createOrUpdateReceipt(data: { date: string; imageUrl?: string }) {
+    return this.post<DailyReceipt>('/receipts', data);
+  }
+
+  /** 영수증 삭제 */
+  async deleteReceipt(date: string) {
+    return this.delete<void>(`/receipts/${date}`);
   }
 }
 
