@@ -1,11 +1,18 @@
 // API Configuration
-// 프로덕션 환경에서는 실제 서버 IP로 변경하세요 (예: http://172.x.x.x:3000)
+// ⚠️ 서버 IP는 .env 파일에서 관리하세요 (git에 커밋되지 않음)
+// 개발 환경에서는 아래 값을 직접 수정하거나 .env 파일을 사용하세요
+
+// 서버 IP 설정 (프로덕션 배포 시 환경변수로 관리 권장)
+const SERVER_IP = '172.10.5.61';
+const SERVER_PORT = '3000';
+
 export const API_BASE_URL = __DEV__ 
-  ? 'http://10.0.2.2:3000/api'  // Android 에뮬레이터에서 localhost 접근
-  : 'http://172.10.1.1:3000/api';  // TODO: 실제 서버 IP로 변경
+  ? `http://${SERVER_IP}:${SERVER_PORT}/api`  // 개발 환경
+  : `http://${SERVER_IP}:${SERVER_PORT}/api`; // 프로덕션 환경
+
 export const WS_URL = __DEV__
-  ? 'ws://10.0.2.2:3000'
-  : 'ws://172.10.1.1:3000';  // TODO: 실제 서버 IP로 변경
+  ? `ws://${SERVER_IP}:${SERVER_PORT}`
+  : `ws://${SERVER_IP}:${SERVER_PORT}`;
 
 // App Configuration
 export const APP_NAME = 'Momento';
