@@ -13,12 +13,7 @@ import {
 import MaterialDesignIcons from '@react-native-vector-icons/material-design-icons';
 const Icon = MaterialDesignIcons;
 import { COLORS, FONT_SIZES, FONTS, FONT_WEIGHTS, SPACING, BORDER_RADIUS } from '@constants/index';
-
-interface User {
-  id: string;
-  nickname: string;
-  emoji?: string;
-}
+import type { User } from '../types';
 
 interface ProfileModalProps {
   isOpen: boolean;

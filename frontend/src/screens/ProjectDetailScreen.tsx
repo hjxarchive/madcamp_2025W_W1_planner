@@ -16,36 +16,10 @@ import { MemberCard } from '@components/MemberCard';
 import { TaskItem } from '@components/TaskItem';
 import { FloatingTimer } from '@components/FloatingTimer';
 import { WriteReportModal } from '@components/WriteReportModal';
+import { api } from '@services/api';
 import { COLORS, FONT_SIZES, SPACING, BORDER_RADIUS, formatTime, formatDate } from '@constants/index';
-
-// Types
-interface Task {
-  id: string;
-  content: string;
-  isDone: boolean;
-  durationMs: number;
-  projectId: string;
-  assigneeId?: string;
-  assigneeName?: string;
-}
-
-interface Member {
-  id: string;
-  nickname: string;
-  timeMs: number;
-  progress: number;
-}
-
-interface Project {
-  id: string;
-  title: string;
-  totalTimeMs: number;
-  dueDate?: Date | null;
-  memberCount: number;
-  tasks: Task[];
-  members?: Member[];
-  report?: any;
-}
+import type { Project, Task, Member } from '../types';
+import { transformProjectDetail } from '../types';
 
 // ========================
 // Personal Project Page
@@ -391,45 +365,13 @@ interface ProjectDetailScreenProps {
   route?: RouteProp<any, any>;
 }
 
-// Sample data (임시 - 나중에 Context나 Store로 대체)
-const sampleProjects: Project[] = [
-  {
-    id: 'proj-1',
-    title: '해석학 공부',
-    totalTimeMs: 7200000,
-    dueDate: new Date('2026-01-15'),
-    memberCount: 1,
-    tasks: [
-      { id: 't1', content: '수업 복습하기', isDone: true, durationMs: 3600000, projectId: 'proj-1' },
-      { id: 't2', content: '연습문제 풀기', isDone: false, durationMs: 1800000, projectId: 'proj-1' },
-      { id: 't3', content: '개념 정리 노트', isDone: false, durationMs: 1800000, projectId: 'proj-1' },
-    ],
-  },
-  {
-    id: 'proj-2',
-    title: '팀 프로젝트 A',
-    totalTimeMs: 14400000,
-    dueDate: new Date('2026-01-20'),
-    memberCount: 3,
-    members: [
-      { id: 'm1', nickname: 'Hanjin', timeMs: 5400000, progress: 45 },
-      { id: 'm2', nickname: 'Alice', timeMs: 4500000, progress: 40 },
-      { id: 'm3', nickname: 'Bob', timeMs: 4500000, progress: 35 },
-    ],
-    tasks: [
-      { id: 't4', content: '디자인 시안 작성', isDone: true, durationMs: 5400000, projectId: 'proj-2', assigneeId: 'm1', assigneeName: 'Hanjin' },
-      { id: 't5', content: 'API 개발', isDone: false, durationMs: 4500000, projectId: 'proj-2', assigneeId: 'm2', assigneeName: 'Alice' },
-      { id: 't6', content: '문서 작성', isDone: false, durationMs: 4500000, projectId: 'proj-2', assigneeId: 'm3', assigneeName: 'Bob' },
-    ],
-  },
-];
-
 export const ProjectDetailScreen: React.FC<ProjectDetailScreenProps> = ({ route }) => {
   const navigation = useNavigation();
   const routeParams = route?.params as { projectId?: string; project?: Project } | undefined;
   
   // Project state
   const [project, setProject] = useState<Project | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   
   // Timer state
   const [isTimerRunning, setIsTimerRunning] = useState(false);
@@ -437,22 +379,36 @@ export const ProjectDetailScreen: React.FC<ProjectDetailScreenProps> = ({ route 
   const [currentTaskId, setCurrentTaskId] = useState<string | null>(null);
   const [currentProjectId, setCurrentProjectId] = useState<string | null>(null);
   const [currentTask, setCurrentTask] = useState<Task | null>(null);
+  const [activeTimeLogId, setActiveTimeLogId] = useState<string | null>(null);
   
   // Report modal state
   const [showWriteReport, setShowWriteReport] = useState(false);
+
+  // Load project from API
+  const loadProject = useCallback(async (projectId: string) => {
+    try {
+      const res = await api.getProject(projectId);
+      if (res.data) {
+        setProject(transformProjectDetail(res.data));
+      }
+    } catch (error) {
+      console.error('프로젝트 로드 실패:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
 
   // Load project
   useEffect(() => {
     if (routeParams?.project) {
       setProject(routeParams.project);
+      setIsLoading(false);
     } else if (routeParams?.projectId) {
-      // Find from sample data
-      const found = sampleProjects.find(p => p.id === routeParams.projectId);
-      if (found) {
-        setProject(found);
-      }
+      loadProject(routeParams.projectId);
+    } else {
+      setIsLoading(false);
     }
-  }, [routeParams]);
+  }, [routeParams, loadProject]);
 
   // Timer effect
   useEffect(() => {
@@ -470,8 +426,13 @@ export const ProjectDetailScreen: React.FC<ProjectDetailScreenProps> = ({ route 
     navigation.goBack();
   }, [navigation]);
 
-  const handleToggleTask = useCallback((taskId: string) => {
+  const handleToggleTask = useCallback(async (taskId: string) => {
     if (!project) return;
+    
+    const task = project.tasks.find(t => t.id === taskId);
+    if (!task) return;
+
+    // Optimistic update
     setProject(prev => {
       if (!prev) return prev;
       return {
@@ -481,10 +442,38 @@ export const ProjectDetailScreen: React.FC<ProjectDetailScreenProps> = ({ route 
         ),
       };
     });
+
+    // API 호출
+    try {
+      await api.updateChecklist(taskId, { isCompleted: !task.isDone });
+    } catch (error) {
+      console.error('Task 업데이트 실패:', error);
+      // 실패 시 롤백
+      setProject(prev => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          tasks: prev.tasks.map(t => 
+            t.id === taskId ? { ...t, isDone: task.isDone } : t
+          ),
+        };
+      });
+    }
   }, [project]);
 
-  const handleStartTaskTimer = useCallback((task: Task) => {
+  const handleStartTaskTimer = useCallback(async (task: Task) => {
     if (!project) return;
+    
+    try {
+      // API로 타이머 시작
+      const res = await api.startTimer(task.id);
+      if (res.data) {
+        setActiveTimeLogId(res.data.id);
+      }
+    } catch (error) {
+      console.error('타이머 시작 실패:', error);
+    }
+
     setCurrentTask(task);
     setCurrentTaskId(task.id);
     setCurrentProjectId(project.id);
@@ -492,7 +481,16 @@ export const ProjectDetailScreen: React.FC<ProjectDetailScreenProps> = ({ route 
     setIsTimerRunning(true);
   }, [project]);
 
-  const handleStopTimer = useCallback(() => {
+  const handleStopTimer = useCallback(async () => {
+    // API로 타이머 정지
+    if (activeTimeLogId) {
+      try {
+        await api.stopTimer(activeTimeLogId);
+      } catch (error) {
+        console.error('타이머 정지 실패:', error);
+      }
+    }
+
     if (project && currentTaskId && elapsedTime > 0) {
       setProject(prev => {
         if (!prev) return prev;
@@ -513,25 +511,62 @@ export const ProjectDetailScreen: React.FC<ProjectDetailScreenProps> = ({ route 
     setCurrentTask(null);
     setCurrentTaskId(null);
     setCurrentProjectId(null);
-  }, [project, currentTaskId, elapsedTime]);
+    setActiveTimeLogId(null);
+  }, [project, currentTaskId, elapsedTime, activeTimeLogId]);
 
-  const handleAddTask = useCallback(() => {
-    // TODO: Open add task modal
-    Alert.alert('알림', 'Task 추가 기능은 준비 중입니다.');
-  }, []);
+  const handleAddTask = useCallback(async () => {
+    if (!project) return;
+    
+    // TODO: Task 추가 모달 열기
+    Alert.prompt(
+      'Task 추가',
+      '새 Task 내용을 입력하세요',
+      async (text) => {
+        if (text && text.trim()) {
+          try {
+            const res = await api.createChecklist(project.id, { content: text.trim() });
+            if (res.data) {
+              // 프로젝트 다시 로드
+              loadProject(project.id);
+            }
+          } catch (error) {
+            console.error('Task 추가 실패:', error);
+            Alert.alert('오류', 'Task 추가에 실패했습니다.');
+          }
+        }
+      },
+      'plain-text'
+    );
+  }, [project, loadProject]);
 
   const handleWriteReport = useCallback(() => {
     setShowWriteReport(true);
   }, []);
 
-  const handleSaveReport = useCallback((reportData: any) => {
-    if (project) {
-      setProject(prev => {
-        if (!prev) return prev;
-        return { ...prev, report: reportData };
-      });
-      // 보고서 저장 후 메인 페이지로 이동
-      navigation.goBack();
+  const handleSaveReport = useCallback(async (reportData: { rating: number }) => {
+    if (!project) return;
+
+    try {
+      const res = await api.completeProject(project.id, { rating: reportData.rating });
+      if (res.data) {
+        setProject(prev => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            report: {
+              rating: reportData.rating,
+              createdAt: new Date(),
+              totalTimeMs: prev.totalTimeMs,
+              completedTasks: prev.tasks.filter(t => t.isDone).length,
+            },
+          };
+        });
+        // 보고서 저장 후 메인 페이지로 이동
+        navigation.goBack();
+      }
+    } catch (error) {
+      console.error('보고서 저장 실패:', error);
+      Alert.alert('오류', '보고서 저장에 실패했습니다.');
     }
   }, [project, navigation]);
 

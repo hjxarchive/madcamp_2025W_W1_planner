@@ -3,18 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import MaterialDesignIcons from '@react-native-vector-icons/material-design-icons';
 const Icon = MaterialDesignIcons;
 import { COLORS, FONT_SIZES, FONTS, FONT_WEIGHTS, SPACING, BORDER_RADIUS, formatTime, formatTimeShort } from '@constants/index';
-
-// Types
-interface Task {
-  id: string;
-  content: string;
-  isDone: boolean;
-  durationMs: number;
-  projectId: string;
-  projectTitle?: string;
-  assigneeId?: string;
-  assigneeName?: string;
-}
+import type { Task } from '../types';
 
 interface TaskItemProps {
   task: Task;

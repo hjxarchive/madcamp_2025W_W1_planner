@@ -16,77 +16,32 @@ import { TotalTimeDisplay, TaskItem, ProjectCard, FloatingTimer, ProfileModal, F
 import { api } from '@services/api';
 import { COLORS, FONT_SIZES, FONTS, FONT_WEIGHTS, SPACING, BORDER_RADIUS, formatTime, formatTimeShort } from '@constants/index';
 import type { RootStackParamList } from '@navigation/RootNavigator';
+import type { User, Project, Task, TimerState } from '../types';
+import { transformApiUser, transformProjectSummary, transformProjectDetail } from '../types';
 
-// Types
-interface Task {
-  id: string;
-  content: string;
-  isDone: boolean;
-  durationMs: number;
-  projectId: string;
-  projectTitle?: string;
-  assigneeId?: string;
-  assigneeName?: string;
-}
-
-interface Project {
-  id: string;
-  title: string;
-  totalTimeMs: number;
-  dueDate?: Date | null;
-  memberCount: number;
-  tasks: Task[];
-  members?: { id: string; nickname: string; timeMs: number; progress: number }[];
-  report?: any;
-}
-
-interface User {
-  id: string;
-  nickname: string;
-  emoji?: string;
-}
-
-// Sample data (웹앱과 동일)
-const initialUser: User = {
+// Sample data - API 연결 실패 시 폴백용
+const sampleUser: User = {
   id: 'user-1',
-  nickname: 'Hanjin',
+  nickname: 'Guest',
   emoji: '🦊',
 };
 
-const initialProjects: Project[] = [
+const sampleProjects: Project[] = [
   {
-    id: 'proj-1',
-    title: '해석학 공부',
-    totalTimeMs: 7200000,
+    id: 'sample-proj-1',
+    title: '샘플 프로젝트',
+    totalTimeMs: 3600000,
     dueDate: new Date('2026-01-15'),
     memberCount: 1,
     tasks: [
-      { id: 't1', content: '수업 복습하기', isDone: true, durationMs: 3600000, projectId: 'proj-1' },
-      { id: 't2', content: '연습문제 풀기', isDone: false, durationMs: 1800000, projectId: 'proj-1' },
-      { id: 't3', content: '개념 정리 노트', isDone: false, durationMs: 1800000, projectId: 'proj-1' },
-    ],
-  },
-  {
-    id: 'proj-2',
-    title: '팀 프로젝트 A',
-    totalTimeMs: 14400000,
-    dueDate: new Date('2026-01-20'),
-    memberCount: 3,
-    members: [
-      { id: 'm1', nickname: 'Hanjin', timeMs: 5400000, progress: 45 },
-      { id: 'm2', nickname: 'Alice', timeMs: 4500000, progress: 40 },
-      { id: 'm3', nickname: 'Bob', timeMs: 4500000, progress: 35 },
-    ],
-    tasks: [
-      { id: 't4', content: '디자인 시안 작성', isDone: true, durationMs: 5400000, projectId: 'proj-2', assigneeId: 'm1', assigneeName: 'Hanjin' },
-      { id: 't5', content: 'API 개발', isDone: false, durationMs: 4500000, projectId: 'proj-2', assigneeId: 'm2', assigneeName: 'Alice' },
-      { id: 't6', content: '문서 작성', isDone: false, durationMs: 4500000, projectId: 'proj-2', assigneeId: 'm3', assigneeName: 'Bob' },
+      { id: 'sample-t1', content: '샘플 Task 1', isDone: false, durationMs: 1800000, projectId: 'sample-proj-1' },
+      { id: 'sample-t2', content: '샘플 Task 2', isDone: false, durationMs: 1800000, projectId: 'sample-proj-1' },
     ],
   },
 ];
 
 // 오늘의 Task 가져오기 (모든 프로젝트에서)
-const getTodayTasks = (projects: Project[], user: User): Task[] => {
+const getTodayTasks = (projects: Project[]): Task[] => {
   const tasks: Task[] = [];
   projects.forEach(project => {
     if (!project.report) {
@@ -112,14 +67,16 @@ type HomeNavigationProp = NativeStackNavigationProp<RootStackParamList, 'MainTab
 export const HomeScreen: React.FC = () => {
   const navigation = useNavigation<HomeNavigationProp>();
   const [refreshing, setRefreshing] = useState(false);
-  const [user, setUser] = useState<User>(initialUser);
-  const [projects, setProjects] = useState<Project[]>(initialProjects);
+  const [isLoading, setIsLoading] = useState(true);
+  const [user, setUser] = useState<User>(sampleUser);
+  const [projects, setProjects] = useState<Project[]>([]);
   
   // Timer state
   const [isTimerRunning, setIsTimerRunning] = useState(false);
   const [elapsedTime, setElapsedTime] = useState(0);
   const [currentProject, setCurrentProject] = useState<Project | null>(null);
   const [currentTask, setCurrentTask] = useState<Task | null>(null);
+  const [activeTimeLogId, setActiveTimeLogId] = useState<string | null>(null);
 
   // Profile modal state
   const [showProfile, setShowProfile] = useState(false);
@@ -131,7 +88,7 @@ export const HomeScreen: React.FC = () => {
   const totalTimeMs = projects.reduce((sum, p) => sum + p.totalTimeMs, 0);
   
   // 오늘의 Task
-  const todayTasks = getTodayTasks(projects, user);
+  const todayTasks = getTodayTasks(projects);
 
   // Timer effect
   useEffect(() => {
@@ -146,13 +103,35 @@ export const HomeScreen: React.FC = () => {
 
   const loadData = useCallback(async () => {
     try {
-      // API에서 데이터 로드 시도
-      const projectsRes = await api.getProjects();
-      if (projectsRes.data && projectsRes.data.length > 0) {
-        // setProjects(projectsRes.data);
+      // 사용자 정보 로드
+      const userRes = await api.getMe();
+      if (userRes.data) {
+        setUser(transformApiUser(userRes.data));
+      }
+
+      // 현재 진행 중인 프로젝트 로드
+      const projectsRes = await api.getCurrentProjects();
+      if (projectsRes.data && projectsRes.data.data.length > 0) {
+        // 각 프로젝트의 상세 정보를 가져와서 tasks 포함
+        const projectDetails = await Promise.all(
+          projectsRes.data.data.map(async (summary) => {
+            const detailRes = await api.getProject(summary.id);
+            if (detailRes.data) {
+              return transformProjectDetail(detailRes.data);
+            }
+            return transformProjectSummary(summary);
+          })
+        );
+        setProjects(projectDetails);
+      } else {
+        // API에서 프로젝트가 없으면 빈 배열 설정
+        setProjects([]);
       }
     } catch (error) {
-      console.log('Using sample data');
+      console.log('API 연결 실패, 샘플 데이터 사용:', error);
+      setProjects(sampleProjects);
+    } finally {
+      setIsLoading(false);
     }
   }, []);
 
@@ -167,7 +146,11 @@ export const HomeScreen: React.FC = () => {
   };
 
   // 오늘의 Task 토글
-  const handleToggleDailyTask = (projectId: string, taskId: string) => {
+  const handleToggleDailyTask = async (projectId: string, taskId: string) => {
+    const task = projects.find(p => p.id === projectId)?.tasks.find(t => t.id === taskId);
+    if (!task) return;
+
+    // Optimistic update
     setProjects(prev => prev.map(p => {
       if (p.id !== projectId) return p;
       return {
@@ -175,13 +158,38 @@ export const HomeScreen: React.FC = () => {
         tasks: p.tasks.map(t => t.id === taskId ? { ...t, isDone: !t.isDone } : t),
       };
     }));
+
+    // API 호출
+    try {
+      await api.updateChecklist(taskId, { isCompleted: !task.isDone });
+    } catch (error) {
+      // 실패 시 롤백
+      console.error('Task 업데이트 실패:', error);
+      setProjects(prev => prev.map(p => {
+        if (p.id !== projectId) return p;
+        return {
+          ...p,
+          tasks: p.tasks.map(t => t.id === taskId ? { ...t, isDone: task.isDone } : t),
+        };
+      }));
+    }
   };
 
   // 타이머 시작
-  const handleStartDailyTaskTimer = (task: Task) => {
+  const handleStartDailyTaskTimer = async (task: Task) => {
     const project = projects.find(p => p.id === task.projectId);
     if (!project) return;
     
+    try {
+      // API로 타이머 시작
+      const res = await api.startTimer(task.id);
+      if (res.data) {
+        setActiveTimeLogId(res.data.id);
+      }
+    } catch (error) {
+      console.error('타이머 시작 실패:', error);
+    }
+
     setCurrentProject(project);
     setCurrentTask(task);
     setElapsedTime(0);
@@ -189,7 +197,16 @@ export const HomeScreen: React.FC = () => {
   };
 
   // 타이머 정지
-  const handleStopTimer = () => {
+  const handleStopTimer = async () => {
+    // API로 타이머 정지
+    if (activeTimeLogId) {
+      try {
+        await api.stopTimer(activeTimeLogId);
+      } catch (error) {
+        console.error('타이머 정지 실패:', error);
+      }
+    }
+
     if (currentProject && currentTask && elapsedTime > 0) {
       setProjects(prev => prev.map(p => {
         if (p.id !== currentProject.id) return p;
@@ -203,6 +220,7 @@ export const HomeScreen: React.FC = () => {
     setElapsedTime(0);
     setCurrentProject(null);
     setCurrentTask(null);
+    setActiveTimeLogId(null);
   };
 
   // 프로젝트 클릭
@@ -222,8 +240,17 @@ export const HomeScreen: React.FC = () => {
   };
 
   // 사용자 정보 업데이트
-  const handleUpdateUser = (updatedUser: User) => {
+  const handleUpdateUser = async (updatedUser: User) => {
     setUser(updatedUser);
+    // API로 사용자 정보 업데이트
+    try {
+      await api.updateMe({
+        nickname: updatedUser.nickname,
+        profileEmoji: updatedUser.emoji || undefined,
+      });
+    } catch (error) {
+      console.error('사용자 정보 업데이트 실패:', error);
+    }
   };
 
   // 활성화된(보고서 작성 안 된) 프로젝트만 표시

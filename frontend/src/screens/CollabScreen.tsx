@@ -7,8 +7,10 @@ import {
   TouchableOpacity,
   RefreshControl,
   Image,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
 import MaterialDesignIcons from '@react-native-vector-icons/material-design-icons';
 const Icon = MaterialDesignIcons;
 import { api } from '@services/api';
@@ -34,7 +36,9 @@ interface CollabProject {
 }
 
 export const CollabScreen: React.FC = () => {
+  const navigation = useNavigation();
   const [refreshing, setRefreshing] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [projects, setProjects] = useState<CollabProject[]>([]);
   const [invitations, setInvitations] = useState<any[]>([]);
 
@@ -46,6 +50,8 @@ export const CollabScreen: React.FC = () => {
       }
     } catch (error) {
       console.error('Failed to load collab projects:', error);
+    } finally {
+      setIsLoading(false);
     }
   }, []);
 
@@ -65,7 +71,19 @@ export const CollabScreen: React.FC = () => {
 
   const handleProjectPress = (projectId: string) => {
     // Navigate to project detail
+    (navigation as any).navigate('ProjectDetail', { projectId });
   };
+
+  // Loading state
+  if (isLoading) {
+    return (
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={COLORS.primary} />
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -243,6 +261,11 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.background,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   scrollView: {
     flex: 1,

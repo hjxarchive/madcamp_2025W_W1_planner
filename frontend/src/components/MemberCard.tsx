@@ -3,30 +3,7 @@ import { View, Text, StyleSheet, Animated } from 'react-native';
 import MaterialDesignIcons from '@react-native-vector-icons/material-design-icons';
 const Icon = MaterialDesignIcons;
 import { COLORS, FONT_SIZES, SPACING, BORDER_RADIUS, formatTime } from '@constants/index';
-
-interface Member {
-  id: string;
-  nickname: string;
-  timeMs: number;
-  progress: number;
-}
-
-interface Task {
-  id: string;
-  content: string;
-  isDone: boolean;
-  durationMs: number;
-  assigneeId?: string;
-  assigneeName?: string;
-}
-
-interface Project {
-  id: string;
-  title: string;
-  totalTimeMs: number;
-  tasks: Task[];
-  members?: Member[];
-}
+import type { Member, Task, Project } from '../types';
 
 interface MemberCardProps {
   member: Member;

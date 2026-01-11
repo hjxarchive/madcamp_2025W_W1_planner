@@ -7,78 +7,17 @@ import {
   TouchableOpacity,
   RefreshControl,
   Dimensions,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import MaterialDesignIcons from '@react-native-vector-icons/material-design-icons';
 const Icon = MaterialDesignIcons;
 import { COLORS, FONT_SIZES, SPACING, BORDER_RADIUS, formatTime } from '@constants/index';
+import { api } from '@services/api';
+import type { Project, Task, Report } from '../types';
+import { transformProjectSummary } from '../types';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-
-// Types
-interface Task {
-  id: string;
-  content: string;
-  isDone: boolean;
-  durationMs: number;
-}
-
-interface Report {
-  rating: number;
-  memo?: string;
-  createdAt: Date;
-  totalTimeMs: number;
-  completedTasks: number;
-}
-
-interface Project {
-  id: string;
-  title: string;
-  totalTimeMs: number;
-  memberCount: number;
-  tasks: Task[];
-  report?: Report;
-}
-
-// Sample data (보고서가 있는 완료된 프로젝트)
-const sampleCompletedProjects: Project[] = [
-  {
-    id: 'proj-completed-1',
-    title: '알고리즘 스터디',
-    totalTimeMs: 18000000, // 5시간
-    memberCount: 1,
-    tasks: [
-      { id: 't1', content: 'BFS/DFS 복습', isDone: true, durationMs: 7200000 },
-      { id: 't2', content: '다이나믹 프로그래밍 문제풀이', isDone: true, durationMs: 5400000 },
-      { id: 't3', content: '그래프 알고리즘 정리', isDone: true, durationMs: 5400000 },
-    ],
-    report: {
-      rating: 4,
-      memo: '',
-      createdAt: new Date('2026-01-08'),
-      totalTimeMs: 18000000,
-      completedTasks: 3,
-    },
-  },
-  {
-    id: 'proj-completed-2',
-    title: '포트폴리오 제작',
-    totalTimeMs: 25200000, // 7시간
-    memberCount: 1,
-    tasks: [
-      { id: 't4', content: '디자인 시안', isDone: true, durationMs: 10800000 },
-      { id: 't5', content: '프론트엔드 구현', isDone: true, durationMs: 10800000 },
-      { id: 't6', content: '배포', isDone: true, durationMs: 3600000 },
-    ],
-    report: {
-      rating: 5,
-      memo: '',
-      createdAt: new Date('2026-01-05'),
-      totalTimeMs: 25200000,
-      completedTasks: 3,
-    },
-  },
-];
 
 // Donut Chart Component for Report
 const ReportDonutChart: React.FC<{
@@ -242,21 +181,56 @@ const ReportDetailView: React.FC<{
 // Main Report Page (PastScreen)
 export const PastScreen: React.FC = () => {
   const [refreshing, setRefreshing] = useState(false);
-  const [projects, setProjects] = useState<Project[]>(sampleCompletedProjects);
+  const [isLoading, setIsLoading] = useState(true);
+  const [projects, setProjects] = useState<Project[]>([]);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
+
+  // Load past projects from API
+  const loadPastProjects = useCallback(async () => {
+    try {
+      const res = await api.getPastProjects();
+      if (res.data) {
+        const transformed = res.data.map(transformProjectSummary);
+        setProjects(transformed);
+      }
+    } catch (error) {
+      console.error('과거 프로젝트 로드 실패:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadPastProjects();
+  }, [loadPastProjects]);
 
   const completedProjects = projects.filter(p => p.report);
 
   const onRefresh = async () => {
     setRefreshing(true);
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    await loadPastProjects();
     setRefreshing(false);
   };
 
   const handleViewReport = (project: Project) => {
     setSelectedProject(project);
   };
+
+  // Loading state
+  if (isLoading) {
+    return (
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <View style={styles.header}>
+          <View style={{ width: 24 }} />
+          <Text style={styles.headerTitle}>보고서</Text>
+          <View style={{ width: 24 }} />
+        </View>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={COLORS.primary} />
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   // Show detail view if project selected
   if (selectedProject) {
@@ -377,6 +351,11 @@ const styles = StyleSheet.create({
     fontSize: FONT_SIZES.base,
     color: COLORS.gray400,
     marginTop: SPACING.md,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   // Detail View
   detailContainer: {

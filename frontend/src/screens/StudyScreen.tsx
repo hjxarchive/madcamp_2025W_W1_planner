@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -10,11 +10,14 @@ import {
   FlatList,
   NativeSyntheticEvent,
   NativeScrollEvent,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import MaterialDesignIcons from '@react-native-vector-icons/material-design-icons';
 const Icon = MaterialDesignIcons;
 import { COLORS, FONT_SIZES, SPACING, BORDER_RADIUS, formatTime, formatTimeShort, formatDate } from '@constants/index';
+import { api } from '@services/api';
+import type { DailyArchive } from '../types';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CARD_WIDTH = SCREEN_WIDTH * 0.85;
@@ -28,14 +31,6 @@ interface Task {
 
 interface TimeSlot {
   active: boolean;
-}
-
-interface DailyArchive {
-  date: Date;
-  tasks: Task[];
-  totalTimeMs: number;
-  timeSlots: TimeSlot[];
-  recordedAt?: Date;
 }
 
 const getDayName = (date: Date): string => {
@@ -405,17 +400,106 @@ const monthlyStyles = StyleSheet.create({
 
 export const StudyScreen: React.FC = () => {
   const [refreshing, setRefreshing] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [weeklyData, setWeeklyData] = useState<DailyArchive[]>([]);
   const [currentIndex, setCurrentIndex] = useState(6);
   const [showMonthly, setShowMonthly] = useState(false);
+  const [nickname, setNickname] = useState('사용자');
   const flatListRef = useRef<FlatList>(null);
-  const nickname = '사용자';
   
-  useEffect(() => { setWeeklyData(generateWeeklyData()); }, []);
+  // API에서 주간 데이터 로드
+  const loadWeeklyData = useCallback(async () => {
+    try {
+      // 사용자 정보 조회
+      const userRes = await api.getMe();
+      if (userRes.data) {
+        setNickname(userRes.data.nickname);
+      }
+
+      // 오늘 요약 조회
+      const todayRes = await api.getTodaySummary();
+      
+      // 영수증 목록 조회 (지난 7일치)
+      const receiptsRes = await api.getReceipts(1, 7);
+      
+      // 주간 데이터 생성
+      const today = new Date();
+      const weekly: DailyArchive[] = [];
+      
+      for (let i = 6; i >= 0; i--) {
+        const date = new Date(today);
+        date.setDate(today.getDate() - i);
+        const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+        
+        // 오늘인 경우 getTodaySummary 데이터 사용
+        if (i === 0 && todayRes.data) {
+          const tasks: Task[] = todayRes.data.timeLogs.map(log => ({
+            taskName: log.checklistContent,
+            projectName: log.projectTitle,
+            durationMs: log.durationMinutes * 60 * 1000,
+          }));
+          
+          // 24시간 타임슬롯 계산
+          const timeSlots: TimeSlot[] = Array.from({ length: 24 }, () => ({ active: false }));
+          todayRes.data.timeLogs.forEach(log => {
+            const startHour = new Date(log.startedAt).getHours();
+            const endHour = new Date(log.endedAt).getHours();
+            for (let h = startHour; h <= endHour; h++) {
+              if (h >= 0 && h < 24) timeSlots[h].active = true;
+            }
+          });
+          
+          weekly.push({
+            date,
+            tasks,
+            totalTimeMs: todayRes.data.totalMinutes * 60 * 1000,
+            timeSlots,
+            recordedAt: new Date(),
+          });
+        } else {
+          // 영수증 데이터에서 해당 날짜 찾기
+          const receipt = receiptsRes.data?.data?.find(r => r.date === dateStr);
+          
+          if (receipt) {
+            // 영수증이 있는 날
+            weekly.push({
+              date,
+              tasks: [], // 영수증에는 세부 task 정보가 없으므로 빈 배열
+              totalTimeMs: receipt.totalMinutes * 60 * 1000,
+              timeSlots: Array.from({ length: 24 }, () => ({ active: receipt.totalMinutes > 0 && Math.random() > 0.5 })),
+              recordedAt: new Date(receipt.createdAt),
+            });
+          } else {
+            // 데이터 없는 날
+            weekly.push({
+              date,
+              tasks: [],
+              totalTimeMs: 0,
+              timeSlots: Array.from({ length: 24 }, () => ({ active: false })),
+            });
+          }
+        }
+      }
+      
+      setWeeklyData(weekly);
+    } catch (error) {
+      console.error('주간 데이터 로드 실패:', error);
+      // 실패 시 빈 데이터로 초기화
+      setWeeklyData(generateWeeklyData());
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+  
+  useEffect(() => { loadWeeklyData(); }, [loadWeeklyData]);
   
   const totalWeekTime = weeklyData.reduce((sum, d) => sum + d.totalTimeMs, 0);
   
-  const onRefresh = async () => { setRefreshing(true); await new Promise(r => setTimeout(r, 1000)); setWeeklyData(generateWeeklyData()); setRefreshing(false); };
+  const onRefresh = async () => { 
+    setRefreshing(true); 
+    await loadWeeklyData(); 
+    setRefreshing(false); 
+  };
   
   const scrollToIndex = (index: number) => { flatListRef.current?.scrollToIndex({ index, animated: true }); setCurrentIndex(index); };
   
