@@ -423,6 +423,26 @@ class ApiService {
     return this.post<DailyReceipt>('/receipts', data);
   }
 
+  /** 영수증 이미지 생성 요청 */
+  async generateReceiptImage(date: string) {
+    return this.post<DailyReceipt>(`/receipts/${date}/generate-image`, {});
+  }
+
+  /** 영수증 상세 정보 조회 */
+  async getReceiptDetails(date: string) {
+    return this.get<{
+      id: string | null;
+      date: string;
+      imageUrl: string | null;
+      tasks: { taskName: string; projectName: string; durationMs: number }[];
+      totalTimeMs: number;
+      totalMinutes: number;
+      completedTasksCount: number;
+      timeSlots: boolean[];
+      createdAt: string | null;
+    }>(`/receipts/${date}/details`);
+  }
+
   /** 영수증 삭제 */
   async deleteReceipt(date: string) {
     return this.delete<void>(`/receipts/${date}`);

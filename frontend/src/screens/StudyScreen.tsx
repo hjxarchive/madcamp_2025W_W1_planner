@@ -11,6 +11,8 @@ import {
   NativeSyntheticEvent,
   NativeScrollEvent,
   ActivityIndicator,
+  Image,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import MaterialDesignIcons from '@react-native-vector-icons/material-design-icons';
@@ -22,6 +24,21 @@ import type { DailyArchive } from '../types';
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CARD_WIDTH = SCREEN_WIDTH * 0.85;
 const CARD_GAP = 16;
+
+// 서버 Base URL (이미지 URL 생성용)
+const getImageBaseUrl = () => {
+  // API_BASE_URL에서 /api 부분 제거
+  const baseUrl = 'http://172.10.5.61'; // 서버 IP
+  return baseUrl;
+};
+
+interface ReceiptCardData {
+  date: Date;
+  dateStr: string;
+  imageUrl: string | null;
+  totalMinutes: number;
+  isLoading: boolean;
+}
 
 interface Task {
   taskName: string;
@@ -134,121 +151,74 @@ const barcodeStyles = StyleSheet.create({
   },
 });
 
-const ReceiptCard: React.FC<{
-  archive: DailyArchive;
+/**
+ * 서버에서 생성된 이미지를 표시하는 영수증 카드
+ */
+const ReceiptImageCard: React.FC<{
+  data: ReceiptCardData;
   nickname: string;
+  onGenerateImage: () => void;
   onDownload?: () => void;
-}> = ({ archive, nickname, onDownload }) => {
+}> = ({ data, nickname, onGenerateImage, onDownload }) => {
+  const imageUrl = data.imageUrl ? `${getImageBaseUrl()}${data.imageUrl}` : null;
+
   return (
     <View style={receiptStyles.cardWrapper}>
       <View style={receiptStyles.card}>
-        <View style={receiptStyles.logoContainer}>
-          <View style={receiptStyles.logo}>
-            <Icon name="clock-outline" size={24} color="#fff" />
+        {data.isLoading ? (
+          // 로딩 상태
+          <View style={receiptStyles.loadingContainer}>
+            <ActivityIndicator size="large" color={COLORS.gray900} />
+            <Text style={receiptStyles.loadingText}>영수증 생성 중...</Text>
           </View>
-        </View>
-        
-        <View style={receiptStyles.titleSection}>
-          <Text style={receiptStyles.title}>{nickname}'s Momento</Text>
-          <Text style={receiptStyles.subtitle}>
-            {formatDate(archive.date)} ({getDayName(archive.date)})
-          </Text>
-        </View>
-        
-        <DashedLine />
-        
-        <View style={receiptStyles.row}>
-          <Text style={receiptStyles.rowLabel}>기록 일시</Text>
-          <Text style={receiptStyles.rowValue}>
-            {archive.recordedAt
-              ? `${formatDateFull(archive.date)} ${String(archive.recordedAt.getHours()).padStart(2, '0')}:${String(archive.recordedAt.getMinutes()).padStart(2, '0')}:${String(archive.recordedAt.getSeconds()).padStart(2, '0')}`
-              : `${formatDateFull(archive.date)} 23:59:59`
-            }
-          </Text>
-        </View>
-        
-        <DashedLine />
-        
-        <View style={receiptStyles.taskHeader}>
-          <Text style={[receiptStyles.taskHeaderText, { flex: 1 }]}>Task명</Text>
-          <Text style={[receiptStyles.taskHeaderText, { width: 60, textAlign: 'center' }]}>프로젝트</Text>
-          <Text style={[receiptStyles.taskHeaderText, { width: 70, textAlign: 'right' }]}>소요시간</Text>
-        </View>
-        
-        <View style={receiptStyles.dashedBorder} />
-        
-        <View style={receiptStyles.taskList}>
-          {archive.tasks.length > 0 ? (
-            archive.tasks.map((task, i) => (
-              <View key={i} style={receiptStyles.taskRow}>
-                <Text style={[receiptStyles.taskName, { flex: 1 }]} numberOfLines={1}>{task.taskName}</Text>
-                <Text style={[receiptStyles.taskProject, { width: 60, textAlign: 'center' }]} numberOfLines={1}>{task.projectName}</Text>
-                <Text style={[receiptStyles.taskDuration, { width: 70, textAlign: 'right' }]}>{formatTimeShort(task.durationMs)}</Text>
-              </View>
-            ))
-          ) : (
-            <View style={receiptStyles.emptyTasks}>
-              <Text style={receiptStyles.emptyText}>기록된 Task가 없습니다</Text>
+        ) : imageUrl ? (
+          // 이미지가 있는 경우
+          <Image
+            source={{ uri: imageUrl }}
+            style={receiptStyles.receiptImage}
+            resizeMode="contain"
+          />
+        ) : (
+          // 이미지가 없는 경우 - 생성 버튼 표시
+          <View style={receiptStyles.noImageContainer}>
+            <View style={receiptStyles.noImageIcon}>
+              <Icon name="receipt" size={48} color={COLORS.gray400} />
             </View>
-          )}
-        </View>
-        
-        <DashedLine />
-        
-        <View style={receiptStyles.row}>
-          <Text style={receiptStyles.rowLabel}>합계</Text>
-          <Text style={receiptStyles.totalValue}>{formatTime(archive.totalTimeMs)}</Text>
-        </View>
-        
-        <DashedLine />
-        
-        <View style={receiptStyles.detailsSection}>
-          <Text style={receiptStyles.detailsTitle}>[상세 내역]</Text>
-          <View style={receiptStyles.detailRow}>
-            <Text style={receiptStyles.rowLabel}>완료 Task</Text>
-            <Text style={receiptStyles.rowValue}>{archive.tasks.length}개</Text>
+            <Text style={receiptStyles.noImageTitle}>
+              {formatDateFull(data.date)} ({getDayName(data.date)})
+            </Text>
+            <Text style={receiptStyles.noImageSubtitle}>
+              {data.totalMinutes > 0
+                ? `총 ${formatTime(data.totalMinutes * 60 * 1000)} 기록됨`
+                : '기록된 시간이 없습니다'}
+            </Text>
+            {data.totalMinutes > 0 && (
+              <TouchableOpacity
+                style={receiptStyles.generateButton}
+                onPress={onGenerateImage}
+              >
+                <Icon name="image-plus" size={20} color="#fff" />
+                <Text style={receiptStyles.generateButtonText}>영수증 생성</Text>
+              </TouchableOpacity>
+            )}
           </View>
-          <View style={receiptStyles.detailRow}>
-            <Text style={receiptStyles.rowLabel}>평균 소요시간</Text>
-            <Text style={receiptStyles.rowValue}>{formatTimeShort(Math.floor(archive.totalTimeMs / Math.max(archive.tasks.length, 1)))}</Text>
-          </View>
-        </View>
-        
-        <DashedLine />
-        
-        <View style={receiptStyles.grandTotal}>
-          <Text style={receiptStyles.grandTotalLabel}>총 소요시간</Text>
-          <Text style={receiptStyles.grandTotalValue}>{formatTime(archive.totalTimeMs)}</Text>
-        </View>
-        
-        <DashedLine />
-        
-        <View style={receiptStyles.barcodeSection}>
-          <Text style={receiptStyles.barcodeTitle}>[24시간 타임라인]</Text>
-          <BarcodeTimeline timeSlots={archive.timeSlots} />
-          <View style={receiptStyles.barcodeLabels}>
-            <Text style={receiptStyles.barcodeLabel}>00:00</Text>
-            <Text style={receiptStyles.barcodeLabel}>06:00</Text>
-            <Text style={receiptStyles.barcodeLabel}>12:00</Text>
-            <Text style={receiptStyles.barcodeLabel}>18:00</Text>
-            <Text style={receiptStyles.barcodeLabel}>24:00</Text>
-          </View>
-        </View>
-        
-        <DashedLine />
-        
-        <View style={receiptStyles.footer}>
-          <Text style={receiptStyles.footerText}>오늘도 수고하셨습니다 :)</Text>
-          <Text style={receiptStyles.footerSubtext}>• 내일도 화이팅!</Text>
-          <Text style={receiptStyles.footerSubtext}>• Keep tracking your time</Text>
-        </View>
-        
-        <View style={receiptStyles.footerGradient} />
+        )}
       </View>
       
-      {onDownload && (
+      {/* 다운로드 버튼 (이미지가 있을 때만) */}
+      {imageUrl && onDownload && (
         <TouchableOpacity style={receiptStyles.downloadButton} onPress={onDownload}>
           <Icon name="download" size={18} color="#fff" />
+        </TouchableOpacity>
+      )}
+      
+      {/* 새로고침 버튼 (이미지가 있을 때) */}
+      {imageUrl && (
+        <TouchableOpacity 
+          style={receiptStyles.refreshButton} 
+          onPress={onGenerateImage}
+        >
+          <Icon name="refresh" size={18} color={COLORS.gray600} />
         </TouchableOpacity>
       )}
     </View>
@@ -256,42 +226,114 @@ const ReceiptCard: React.FC<{
 };
 
 const receiptStyles = StyleSheet.create({
-  cardWrapper: { width: CARD_WIDTH, marginHorizontal: CARD_GAP / 2 },
-  card: { backgroundColor: '#fff', borderRadius: BORDER_RADIUS.lg, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3 },
-  logoContainer: { alignItems: 'center', paddingTop: SPACING.xl, paddingBottom: SPACING.sm },
-  logo: { width: 48, height: 48, backgroundColor: COLORS.gray900, borderRadius: BORDER_RADIUS.lg, alignItems: 'center', justifyContent: 'center', transform: [{ rotate: '12deg' }] },
-  titleSection: { alignItems: 'center', paddingHorizontal: SPACING.xl, paddingBottom: SPACING.base },
-  title: { fontSize: FONT_SIZES.xl, fontWeight: 'bold', color: COLORS.gray900 },
-  subtitle: { fontSize: FONT_SIZES.sm, color: COLORS.gray500, marginTop: SPACING.xs },
-  row: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: SPACING.xl, paddingVertical: SPACING.sm },
-  rowLabel: { fontSize: FONT_SIZES.sm, color: COLORS.gray600 },
-  rowValue: { fontSize: FONT_SIZES.sm, color: COLORS.gray900 },
-  taskHeader: { flexDirection: 'row', paddingHorizontal: SPACING.xl, paddingVertical: SPACING.sm },
-  taskHeaderText: { fontSize: FONT_SIZES.xs, color: COLORS.gray500, fontWeight: '600' },
-  dashedBorder: { height: 1, borderStyle: 'dashed', borderWidth: 1, borderColor: COLORS.gray300, marginHorizontal: SPACING.md },
-  taskList: { paddingHorizontal: SPACING.xl, paddingVertical: SPACING.sm },
-  taskRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 6 },
-  taskName: { fontSize: FONT_SIZES.sm, color: COLORS.gray800 },
-  taskProject: { fontSize: FONT_SIZES.xs, color: COLORS.gray600 },
-  taskDuration: { fontSize: FONT_SIZES.sm, color: COLORS.gray900 },
-  emptyTasks: { paddingVertical: SPACING.base, alignItems: 'center' },
-  emptyText: { fontSize: FONT_SIZES.sm, color: COLORS.gray400 },
-  totalValue: { fontSize: FONT_SIZES.sm, fontWeight: 'bold', color: COLORS.gray900 },
-  detailsSection: { paddingHorizontal: SPACING.xl, paddingVertical: SPACING.sm },
-  detailsTitle: { fontSize: FONT_SIZES.xs, color: COLORS.gray500, fontWeight: '600', marginBottom: SPACING.sm },
-  detailRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 4 },
-  grandTotal: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: SPACING.xl, paddingVertical: SPACING.md },
-  grandTotalLabel: { fontSize: FONT_SIZES.base, fontWeight: 'bold', color: COLORS.gray900 },
-  grandTotalValue: { fontSize: FONT_SIZES['2xl'], fontWeight: 'bold', color: COLORS.gray900 },
-  barcodeSection: { paddingVertical: SPACING.base, alignItems: 'center' },
-  barcodeTitle: { fontSize: FONT_SIZES.xs, color: COLORS.gray500, marginBottom: SPACING.sm },
-  barcodeLabels: { flexDirection: 'row', justifyContent: 'space-between', width: '80%', marginTop: SPACING.xs },
-  barcodeLabel: { fontSize: FONT_SIZES.xs, color: COLORS.gray400 },
-  footer: { alignItems: 'center', paddingHorizontal: SPACING.xl, paddingVertical: SPACING.base },
-  footerText: { fontSize: FONT_SIZES.sm, color: COLORS.gray600 },
-  footerSubtext: { fontSize: FONT_SIZES.xs, color: COLORS.gray400, marginTop: 4 },
-  footerGradient: { height: 16, backgroundColor: COLORS.gray100, borderBottomLeftRadius: BORDER_RADIUS.lg, borderBottomRightRadius: BORDER_RADIUS.lg },
-  downloadButton: { position: 'absolute', top: SPACING.base, right: SPACING.base, width: 36, height: 36, backgroundColor: COLORS.gray900, borderRadius: 18, alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 4, elevation: 4 },
+  cardWrapper: { width: CARD_WIDTH, marginHorizontal: CARD_GAP / 2, position: 'relative' },
+  card: { 
+    backgroundColor: '#fff', 
+    borderRadius: BORDER_RADIUS.lg, 
+    shadowColor: '#000', 
+    shadowOffset: { width: 0, height: 2 }, 
+    shadowOpacity: 0.1, 
+    shadowRadius: 4, 
+    elevation: 3,
+    minHeight: 500,
+    overflow: 'hidden',
+  },
+  // 영수증 이미지
+  receiptImage: {
+    width: '100%',
+    height: 700,
+    borderRadius: BORDER_RADIUS.lg,
+  },
+  // 로딩 상태
+  loadingContainer: {
+    flex: 1,
+    minHeight: 500,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: SPACING.xl,
+  },
+  loadingText: {
+    marginTop: SPACING.md,
+    fontSize: FONT_SIZES.base,
+    color: COLORS.gray600,
+  },
+  // 이미지 없을 때
+  noImageContainer: {
+    flex: 1,
+    minHeight: 500,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: SPACING.xl,
+  },
+  noImageIcon: {
+    width: 80,
+    height: 80,
+    backgroundColor: COLORS.gray100,
+    borderRadius: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: SPACING.md,
+  },
+  noImageTitle: {
+    fontSize: FONT_SIZES.lg,
+    fontWeight: '600',
+    color: COLORS.gray900,
+    marginBottom: SPACING.xs,
+  },
+  noImageSubtitle: {
+    fontSize: FONT_SIZES.sm,
+    color: COLORS.gray500,
+    marginBottom: SPACING.xl,
+  },
+  generateButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.gray900,
+    paddingHorizontal: SPACING.xl,
+    paddingVertical: SPACING.md,
+    borderRadius: BORDER_RADIUS.xl,
+    gap: SPACING.sm,
+  },
+  generateButtonText: {
+    fontSize: FONT_SIZES.base,
+    fontWeight: '500',
+    color: '#fff',
+  },
+  // 버튼들
+  downloadButton: { 
+    position: 'absolute', 
+    top: SPACING.base, 
+    right: SPACING.base, 
+    width: 36, 
+    height: 36, 
+    backgroundColor: COLORS.gray900, 
+    borderRadius: 18, 
+    alignItems: 'center', 
+    justifyContent: 'center', 
+    shadowColor: '#000', 
+    shadowOffset: { width: 0, height: 2 }, 
+    shadowOpacity: 0.2, 
+    shadowRadius: 4, 
+    elevation: 4,
+  },
+  refreshButton: { 
+    position: 'absolute', 
+    top: SPACING.base, 
+    right: SPACING.base + 44, 
+    width: 36, 
+    height: 36, 
+    backgroundColor: '#fff', 
+    borderRadius: 18, 
+    alignItems: 'center', 
+    justifyContent: 'center', 
+    shadowColor: '#000', 
+    shadowOffset: { width: 0, height: 2 }, 
+    shadowOpacity: 0.1, 
+    shadowRadius: 4, 
+    elevation: 4,
+    borderWidth: 1,
+    borderColor: COLORS.gray200,
+  },
 });
 
 const MonthlyArchivePage: React.FC<{ onBack: () => void; onSelectDate: (date: Date) => void }> = ({ onBack, onSelectDate }) => {
@@ -401,10 +443,11 @@ const monthlyStyles = StyleSheet.create({
 export const StudyScreen: React.FC = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const [weeklyData, setWeeklyData] = useState<DailyArchive[]>([]);
+  const [weeklyData, setWeeklyData] = useState<ReceiptCardData[]>([]);
   const [currentIndex, setCurrentIndex] = useState(6);
   const [showMonthly, setShowMonthly] = useState(false);
   const [nickname, setNickname] = useState('사용자');
+  const [generatingIndex, setGeneratingIndex] = useState<number | null>(null);
   const flatListRef = useRef<FlatList>(null);
   
   // API에서 주간 데이터 로드
@@ -415,85 +458,92 @@ export const StudyScreen: React.FC = () => {
       if (userRes.data) {
         setNickname(userRes.data.nickname);
       }
-
-      // 오늘 요약 조회
-      const todayRes = await api.getTodaySummary();
       
       // 영수증 목록 조회 (지난 7일치)
       const receiptsRes = await api.getReceipts(1, 7);
       
       // 주간 데이터 생성
       const today = new Date();
-      const weekly: DailyArchive[] = [];
+      const weekly: ReceiptCardData[] = [];
       
       for (let i = 6; i >= 0; i--) {
         const date = new Date(today);
         date.setDate(today.getDate() - i);
         const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
         
-        // 오늘인 경우 getTodaySummary 데이터 사용
-        if (i === 0 && todayRes.data) {
-          const tasks: Task[] = todayRes.data.timeLogs.map(log => ({
-            taskName: log.checklistContent,
-            projectName: log.projectTitle,
-            durationMs: log.durationMinutes * 60 * 1000,
-          }));
-          
-          // 24시간 타임슬롯 계산
-          const timeSlots: TimeSlot[] = Array.from({ length: 24 }, () => ({ active: false }));
-          todayRes.data.timeLogs.forEach(log => {
-            const startHour = new Date(log.startedAt).getHours();
-            const endHour = new Date(log.endedAt).getHours();
-            for (let h = startHour; h <= endHour; h++) {
-              if (h >= 0 && h < 24) timeSlots[h].active = true;
-            }
-          });
-          
-          weekly.push({
-            date,
-            tasks,
-            totalTimeMs: todayRes.data.totalMinutes * 60 * 1000,
-            timeSlots,
-            recordedAt: new Date(),
-          });
-        } else {
-          // 영수증 데이터에서 해당 날짜 찾기
-          const receipt = receiptsRes.data?.data?.find(r => r.date === dateStr);
-          
-          if (receipt) {
-            // 영수증이 있는 날
-            weekly.push({
-              date,
-              tasks: [], // 영수증에는 세부 task 정보가 없으므로 빈 배열
-              totalTimeMs: receipt.totalMinutes * 60 * 1000,
-              timeSlots: Array.from({ length: 24 }, () => ({ active: receipt.totalMinutes > 0 && Math.random() > 0.5 })),
-              recordedAt: new Date(receipt.createdAt),
-            });
-          } else {
-            // 데이터 없는 날
-            weekly.push({
-              date,
-              tasks: [],
-              totalTimeMs: 0,
-              timeSlots: Array.from({ length: 24 }, () => ({ active: false })),
-            });
-          }
-        }
+        // 영수증 데이터에서 해당 날짜 찾기
+        const receipt = receiptsRes.data?.data?.find(r => r.date === dateStr);
+        
+        weekly.push({
+          date,
+          dateStr,
+          imageUrl: receipt?.imageUrl || null,
+          totalMinutes: receipt?.totalMinutes || 0,
+          isLoading: false,
+        });
       }
       
       setWeeklyData(weekly);
     } catch (error) {
       console.error('주간 데이터 로드 실패:', error);
       // 실패 시 빈 데이터로 초기화
-      setWeeklyData(generateWeeklyData());
+      const today = new Date();
+      const emptyWeekly: ReceiptCardData[] = [];
+      for (let i = 6; i >= 0; i--) {
+        const date = new Date(today);
+        date.setDate(today.getDate() - i);
+        const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+        emptyWeekly.push({ date, dateStr, imageUrl: null, totalMinutes: 0, isLoading: false });
+      }
+      setWeeklyData(emptyWeekly);
     } finally {
       setIsLoading(false);
     }
   }, []);
   
+  // 영수증 이미지 생성
+  const handleGenerateImage = useCallback(async (index: number) => {
+    const data = weeklyData[index];
+    if (!data) return;
+    
+    // 로딩 상태 설정
+    setWeeklyData(prev => prev.map((item, i) => 
+      i === index ? { ...item, isLoading: true } : item
+    ));
+    setGeneratingIndex(index);
+    
+    try {
+      const response = await api.generateReceiptImage(data.dateStr);
+      
+      if (response.data) {
+        // 이미지 URL 업데이트
+        setWeeklyData(prev => prev.map((item, i) => 
+          i === index ? { 
+            ...item, 
+            imageUrl: response.data!.imageUrl, 
+            totalMinutes: response.data!.totalMinutes,
+            isLoading: false 
+          } : item
+        ));
+        Alert.alert('완료', '영수증 이미지가 생성되었습니다.');
+      } else {
+        throw new Error(response.error || '이미지 생성 실패');
+      }
+    } catch (error) {
+      console.error('영수증 이미지 생성 실패:', error);
+      Alert.alert('오류', '영수증 이미지 생성에 실패했습니다.');
+      // 로딩 상태 해제
+      setWeeklyData(prev => prev.map((item, i) => 
+        i === index ? { ...item, isLoading: false } : item
+      ));
+    } finally {
+      setGeneratingIndex(null);
+    }
+  }, [weeklyData]);
+  
   useEffect(() => { loadWeeklyData(); }, [loadWeeklyData]);
   
-  const totalWeekTime = weeklyData.reduce((sum, d) => sum + d.totalTimeMs, 0);
+  const totalWeekTime = weeklyData.reduce((sum, d) => sum + d.totalMinutes * 60 * 1000, 0);
   
   const onRefresh = async () => { 
     setRefreshing(true); 
@@ -501,16 +551,27 @@ export const StudyScreen: React.FC = () => {
     setRefreshing(false); 
   };
   
-  const scrollToIndex = (index: number) => { flatListRef.current?.scrollToIndex({ index, animated: true }); setCurrentIndex(index); };
+  const scrollToIndex = (index: number) => { 
+    flatListRef.current?.scrollToIndex({ index, animated: true }); 
+    setCurrentIndex(index); 
+  };
   
   const handleScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
     const idx = Math.round(e.nativeEvent.contentOffset.x / (CARD_WIDTH + CARD_GAP));
     if (idx !== currentIndex && idx >= 0 && idx < weeklyData.length) setCurrentIndex(idx);
   };
   
+  const handleDownload = useCallback((index: number) => {
+    const data = weeklyData[index];
+    if (data?.imageUrl) {
+      const fullUrl = `${getImageBaseUrl()}${data.imageUrl}`;
+      Alert.alert('다운로드', `이미지 URL: ${fullUrl}\n\n(갤러리 저장 기능은 추후 구현 예정)`);
+    }
+  }, [weeklyData]);
+  
   if (showMonthly) return <SafeAreaView style={styles.container} edges={['top']}><MonthlyArchivePage onBack={() => setShowMonthly(false)} onSelectDate={() => setShowMonthly(false)} /></SafeAreaView>;
   
-  if (weeklyData.length === 0) return <SafeAreaView style={styles.container} edges={['top']}><View style={styles.loading}><Text style={styles.loadingText}>로딩 중...</Text></View></SafeAreaView>;
+  if (isLoading || weeklyData.length === 0) return <SafeAreaView style={styles.container} edges={['top']}><View style={styles.loading}><ActivityIndicator size="large" color={COLORS.gray900} /><Text style={styles.loadingText}>로딩 중...</Text></View></SafeAreaView>;
   
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -537,7 +598,7 @@ export const StudyScreen: React.FC = () => {
             <TouchableOpacity key={index} onPress={() => scrollToIndex(index)} style={[styles.dateNavItem, currentIndex === index && styles.dateNavItemActive]}>
               <Text style={[styles.dateNavDay, currentIndex === index && styles.dateNavTextActive]}>{getDayName(day.date)}</Text>
               <Text style={[styles.dateNavDate, currentIndex === index && styles.dateNavTextActive]}>{day.date.getDate()}</Text>
-              {day.totalTimeMs > 0 && currentIndex !== index && <View style={styles.dateNavDot} />}
+              {day.totalMinutes > 0 && currentIndex !== index && <View style={styles.dateNavDot} />}
             </TouchableOpacity>
           ))}
         </View>
@@ -552,7 +613,14 @@ export const StudyScreen: React.FC = () => {
           contentContainerStyle={styles.carouselContent}
           onScroll={handleScroll}
           scrollEventThrottle={16}
-          renderItem={({ item, index }) => <ReceiptCard archive={item} nickname={nickname} onDownload={() => console.log(`Download ${index}`)} />}
+          renderItem={({ item, index }) => (
+            <ReceiptImageCard 
+              data={item} 
+              nickname={nickname} 
+              onGenerateImage={() => handleGenerateImage(index)}
+              onDownload={() => handleDownload(index)} 
+            />
+          )}
           keyExtractor={(_, index) => index.toString()}
           getItemLayout={(_, index) => ({ length: CARD_WIDTH + CARD_GAP, offset: (CARD_WIDTH + CARD_GAP) * index, index })}
           initialScrollIndex={6}
@@ -566,7 +634,11 @@ export const StudyScreen: React.FC = () => {
         </View>
         
         <View style={styles.bottomButtons}>
-          <TouchableOpacity style={styles.primaryButton} onPress={() => console.log('Download')}>
+          <TouchableOpacity 
+            style={[styles.primaryButton, (!weeklyData[currentIndex]?.imageUrl || generatingIndex !== null) && styles.buttonDisabled]} 
+            onPress={() => handleDownload(currentIndex)}
+            disabled={!weeklyData[currentIndex]?.imageUrl || generatingIndex !== null}
+          >
             <Icon name="download" size={18} color="#fff" />
             <Text style={styles.primaryButtonText}>현재 영수증 이미지 저장</Text>
           </TouchableOpacity>
@@ -585,7 +657,7 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: SPACING.base, paddingVertical: SPACING.md, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: COLORS.gray200 },
   headerTitle: { fontSize: FONT_SIZES.md, fontWeight: '600', color: COLORS.gray900 },
   scrollView: { flex: 1 },
-  loading: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  loading: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: SPACING.md },
   loadingText: { fontSize: FONT_SIZES.base, color: COLORS.gray500 },
   summaryContainer: { backgroundColor: '#fff', paddingHorizontal: SPACING.base, paddingVertical: SPACING.base, borderBottomWidth: 1, borderBottomColor: COLORS.gray200 },
   summaryRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: SPACING.sm },
@@ -608,6 +680,7 @@ const styles = StyleSheet.create({
   primaryButtonText: { fontSize: FONT_SIZES.base, fontWeight: '500', color: '#fff' },
   secondaryButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff', paddingVertical: SPACING.md, borderRadius: BORDER_RADIUS.xl, borderWidth: 1, borderColor: COLORS.gray300, gap: SPACING.sm },
   secondaryButtonText: { fontSize: FONT_SIZES.base, fontWeight: '500', color: COLORS.gray700 },
+  buttonDisabled: { backgroundColor: COLORS.gray400, opacity: 0.7 },
 });
 
 export default StudyScreen;

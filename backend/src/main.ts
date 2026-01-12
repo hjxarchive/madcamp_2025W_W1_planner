@@ -1,5 +1,6 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
+import { NestExpressApplication } from '@nestjs/platform-express';
 import { AppModule } from './app.module';
 import * as admin from 'firebase-admin';
 import * as swaggerUi from 'swagger-ui-express';
@@ -30,10 +31,18 @@ async function bootstrap() {
     }
   }
 
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
   // Global prefix for all routes
   app.setGlobalPrefix('api');
+
+  // 정적 파일 서빙 (영수증 이미지)
+  const uploadsPath = path.join(process.cwd(), 'uploads');
+  if (!fs.existsSync(uploadsPath)) {
+    fs.mkdirSync(uploadsPath, { recursive: true });
+  }
+  app.useStaticAssets(uploadsPath, { prefix: '/uploads' });
+  console.log(`📁 정적 파일 서빙: /uploads -> ${uploadsPath}`);
 
   // CORS 설정
   app.enableCors({
@@ -54,11 +63,13 @@ async function bootstrap() {
   try {
     // dist/openapi.yaml (nest-cli assets로 복사됨)
     const openApiPath = path.join(__dirname, '..', 'openapi.yaml');
-    const openApiDocument = yaml.load(fs.readFileSync(openApiPath, 'utf8'));
+    const openApiDocument = yaml.load(
+      fs.readFileSync(openApiPath, 'utf8'),
+    ) as swaggerUi.JsonObject;
     app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(openApiDocument));
     console.log('📚 Swagger UI: http://localhost:3000/api-docs');
   } catch (error) {
-    console.warn('⚠️ OpenAPI 문서를 로드할 수 없습니다:', error.message);
+    console.warn('⚠️ OpenAPI 문서를 로드할 수 없습니다:', (error as Error).message);
   }
 
   const port = process.env.PORT ?? 3000;

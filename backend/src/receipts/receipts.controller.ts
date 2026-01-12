@@ -53,6 +53,18 @@ export class ReceiptsController {
     return this.receiptsService.findByDate(dbUser.id, date);
   }
 
+  @Get(':date/details')
+  async getDetails(
+    @CurrentUser() user: FirebaseUser,
+    @Param('date') date: string,
+  ) {
+    const dbUser = await this.usersService.findByFirebaseUid(user.firebaseUid);
+    if (!dbUser) {
+      throw new Error('사용자를 찾을 수 없습니다');
+    }
+    return this.receiptsService.getReceiptDetails(dbUser.id, date);
+  }
+
   @Post()
   async createOrUpdate(
     @CurrentUser() user: FirebaseUser,
@@ -63,6 +75,18 @@ export class ReceiptsController {
       throw new Error('사용자를 찾을 수 없습니다');
     }
     return this.receiptsService.createOrUpdate(dbUser.id, dto);
+  }
+
+  @Post(':date/generate-image')
+  async generateImage(
+    @CurrentUser() user: FirebaseUser,
+    @Param('date') date: string,
+  ) {
+    const dbUser = await this.usersService.findByFirebaseUid(user.firebaseUid);
+    if (!dbUser) {
+      throw new Error('사용자를 찾을 수 없습니다');
+    }
+    return this.receiptsService.generateImage(dbUser.id, date);
   }
 
   @Delete(':date')
