@@ -20,6 +20,7 @@ import { COLORS, FONT_SIZES, FONTS, FONT_WEIGHTS, SPACING, BORDER_RADIUS, format
 import type { RootStackParamList } from '@navigation/RootNavigator';
 import type { User, Project, Task, TimerState } from '../types';
 import { transformApiUser, transformProjectSummary, transformProjectDetail } from '../types';
+import { useTimer } from '@contexts/TimerContext';
 
 // Sample data - API 연결 실패 시 폴백용
 const sampleUser: User = {
@@ -80,13 +81,17 @@ export const HomeScreen: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [user, setUser] = useState<User>(sampleUser);
   const [projects, setProjects] = useState<Project[]>([]);
-  
-  // Timer state
-  const [isTimerRunning, setIsTimerRunning] = useState(false);
-  const [elapsedTime, setElapsedTime] = useState(0);
-  const [currentProject, setCurrentProject] = useState<Project | null>(null);
-  const [currentTask, setCurrentTask] = useState<Task | null>(null);
-  const [activeTimeLogId, setActiveTimeLogId] = useState<string | null>(null);
+
+  // Timer from context
+  const {
+    isTimerRunning,
+    elapsedTime,
+    currentProject,
+    currentTask,
+    startTimer,
+    stopTimer,
+    setOnTimerStopped,
+  } = useTimer();
 
   // Profile modal state
   const [showProfile, setShowProfile] = useState(false);
@@ -104,20 +109,30 @@ export const HomeScreen: React.FC = () => {
 
   // 전체 시간 계산
   const totalTimeMs = projects.reduce((sum, p) => sum + p.totalTimeMs, 0);
-  
+
   // 오늘의 Task
   const todayTasks = getTodayTasks(projects);
 
-  // Timer effect
+  // 타이머 정지 시 프로젝트 시간 업데이트 콜백 설정
   useEffect(() => {
-    let interval: NodeJS.Timeout;
-    if (isTimerRunning) {
-      interval = setInterval(() => {
-        setElapsedTime(prev => prev + 1000);
-      }, 1000);
-    }
-    return () => clearInterval(interval);
-  }, [isTimerRunning]);
+    const handleTimerStopped = (durationMs: number) => {
+      if (currentProject && currentTask) {
+        setProjects(prev => prev.map(p => {
+          if (p.id !== currentProject.id) return p;
+          const updatedTasks = p.tasks.map(t =>
+            t.id !== currentTask.id ? t : { ...t, durationMs: (t.durationMs || 0) + durationMs }
+          );
+          return { ...p, tasks: updatedTasks, totalTimeMs: p.totalTimeMs + durationMs };
+        }));
+      }
+    };
+
+    setOnTimerStopped(handleTimerStopped);
+
+    return () => {
+      setOnTimerStopped(null);
+    };
+  }, [currentProject, currentTask, setOnTimerStopped]);
 
   const loadData = useCallback(async () => {
     try {
@@ -195,53 +210,20 @@ export const HomeScreen: React.FC = () => {
     }
   };
 
-  // 타이머 시작
-  const handleStartDailyTaskTimer = async (task: Task) => {
+  // 타이머 시작 (WebSocket 사용)
+  const handleStartDailyTaskTimer = useCallback((task: Task) => {
     const project = projects.find(p => p.id === task.projectId);
     if (!project) return;
-    
-    try {
-      // API로 타이머 시작
-      const res = await api.startTimer(task.id);
-      if (res.data) {
-        setActiveTimeLogId(res.data.id);
-      }
-    } catch (error) {
-      console.error('타이머 시작 실패:', error);
-    }
 
-    setCurrentProject(project);
-    setCurrentTask(task);
-    setElapsedTime(0);
-    setIsTimerRunning(true);
-  };
+    // TimerContext의 startTimer 호출 (WebSocket으로 서버에 요청)
+    startTimer(task.id, project, task);
+  }, [projects, startTimer]);
 
-  // 타이머 정지
-  const handleStopTimer = async () => {
-    // API로 타이머 정지
-    if (activeTimeLogId) {
-      try {
-        await api.stopTimer(activeTimeLogId);
-      } catch (error) {
-        console.error('타이머 정지 실패:', error);
-      }
-    }
-
-    if (currentProject && currentTask && elapsedTime > 0) {
-      setProjects(prev => prev.map(p => {
-        if (p.id !== currentProject.id) return p;
-        const updatedTasks = p.tasks.map(t =>
-          t.id !== currentTask.id ? t : { ...t, durationMs: (t.durationMs || 0) + elapsedTime }
-        );
-        return { ...p, tasks: updatedTasks, totalTimeMs: p.totalTimeMs + elapsedTime };
-      }));
-    }
-    setIsTimerRunning(false);
-    setElapsedTime(0);
-    setCurrentProject(null);
-    setCurrentTask(null);
-    setActiveTimeLogId(null);
-  };
+  // 타이머 정지 (WebSocket 사용)
+  const handleStopTimer = useCallback(() => {
+    // TimerContext의 stopTimer 호출 (WebSocket으로 서버에 요청)
+    stopTimer();
+  }, [stopTimer]);
 
   // 프로젝트 클릭
   const handleProjectPress = (project: Project) => {

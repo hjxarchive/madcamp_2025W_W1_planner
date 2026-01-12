@@ -9,6 +9,7 @@ import { TimeLogsModule } from './time-logs/time-logs.module';
 import { LocationsModule } from './locations/locations.module';
 import { StudySessionsModule } from './study-sessions/study-sessions.module';
 import { ReceiptsModule } from './receipts/receipts.module';
+import { TimerModule } from './timer/timer.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { ReceiptsModule } from './receipts/receipts.module';
     LocationsModule,
     StudySessionsModule,
     ReceiptsModule,
+    TimerModule,
   ],
   controllers: [AppController],
   providers: [AppService],

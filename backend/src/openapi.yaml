@@ -29,6 +29,8 @@ tags:
     description: 스터디 세션 참가/퇴장
   - name: Receipts
     description: 일일 영수증 관리
+  - name: WebSocket
+    description: 실시간 타이머 동기화 (Socket.IO)
 
 security:
   - BearerAuth: []
@@ -1117,3 +1119,275 @@ paths:
       responses:
         '204':
           description: 삭제 성공
+
+# ============================================================
+# WebSocket API (Socket.IO)
+# ============================================================
+# OpenAPI 3.0 does not natively support WebSocket.
+# Below is AsyncAPI-style documentation using vendor extensions.
+# ============================================================
+
+x-websocket:
+  url: ws://localhost:3000/timer
+  servers:
+    - url: ws://localhost:3000/timer
+      description: Development
+    - url: wss://your-domain.com/timer
+      description: Production (Nginx Proxy)
+
+  connection:
+    description: |
+      Socket.IO 네임스페이스 `/timer`로 연결합니다.
+      연결 시 Firebase ID Token을 auth 옵션으로 전달해야 합니다.
+
+      ```javascript
+      import { io } from 'socket.io-client';
+
+      const socket = io('http://localhost:3000/timer', {
+        auth: { token: 'Firebase ID Token' },
+        transports: ['websocket', 'polling'],
+      });
+      ```
+
+  authentication:
+    type: Bearer
+    description: Firebase ID Token을 auth.token으로 전달
+
+  rooms:
+    - name: "user:{userId}"
+      description: 사용자 개인 채널 (연결 시 자동 조인, 본인 기기 간 동기화)
+    - name: "project:{projectId}"
+      description: 프로젝트 채널 (room:join으로 수동 조인, 팀원에게 브로드캐스트)
+
+  events:
+    client-to-server:
+      - name: timer:start
+        summary: 타이머 시작 요청
+        payload:
+          type: object
+          required: [checklistId]
+          properties:
+            checklistId:
+              type: string
+              format: uuid
+              description: 시작할 체크리스트 ID
+
+      - name: timer:stop
+        summary: 타이머 정지 요청
+        payload:
+          type: object
+          required: [timeLogId]
+          properties:
+            timeLogId:
+              type: string
+              format: uuid
+              description: 정지할 TimeLog ID
+
+      - name: timer:sync
+        summary: 현재 활성 타이머 상태 요청
+        description: 연결/재연결 시 서버의 활성 타이머 상태를 동기화합니다.
+        payload:
+          type: object
+          properties: {}
+
+      - name: room:join
+        summary: 프로젝트 룸 조인
+        description: 팀 프로젝트의 실시간 알림을 받기 위해 프로젝트 룸에 조인합니다.
+        payload:
+          type: object
+          required: [projectId]
+          properties:
+            projectId:
+              type: string
+              format: uuid
+
+      - name: room:leave
+        summary: 프로젝트 룸 떠나기
+        payload:
+          type: object
+          required: [projectId]
+          properties:
+            projectId:
+              type: string
+              format: uuid
+
+    server-to-client:
+      - name: timer:started
+        summary: 타이머 시작됨 (본인)
+        payload:
+          type: object
+          properties:
+            timeLog:
+              $ref: '#/components/schemas/TimeLog'
+            checklist:
+              type: object
+              properties:
+                id:
+                  type: string
+                  format: uuid
+                content:
+                  type: string
+            project:
+              type: object
+              properties:
+                id:
+                  type: string
+                  format: uuid
+                title:
+                  type: string
+
+      - name: timer:stopped
+        summary: 타이머 정지됨 (본인)
+        payload:
+          type: object
+          properties:
+            timeLog:
+              $ref: '#/components/schemas/TimeLog'
+            durationMinutes:
+              type: integer
+
+      - name: timer:active
+        summary: 활성 타이머 정보 (sync 응답)
+        description: timer:sync 요청에 대한 응답으로 현재 활성 타이머 정보를 반환합니다.
+        payload:
+          type: object
+          properties:
+            timeLog:
+              $ref: '#/components/schemas/TimeLog'
+            checklist:
+              type: object
+              properties:
+                id:
+                  type: string
+                  format: uuid
+                content:
+                  type: string
+            project:
+              type: object
+              properties:
+                id:
+                  type: string
+                  format: uuid
+                title:
+                  type: string
+            elapsedMs:
+              type: integer
+              description: 경과 시간 (밀리초)
+
+      - name: timer:none
+        summary: 활성 타이머 없음 (sync 응답)
+        payload:
+          type: object
+          properties: {}
+
+      - name: timer:tick
+        summary: 서버 시간 기준 경과 시간
+        description: 30초마다 서버에서 전송하여 클라이언트 시간을 보정합니다.
+        payload:
+          type: object
+          properties:
+            elapsedMs:
+              type: integer
+              description: 경과 시간 (밀리초)
+            serverTime:
+              type: string
+              format: date-time
+              description: 서버 현재 시간
+
+      - name: timer:member-started
+        summary: 팀원 타이머 시작 알림
+        description: 같은 프로젝트 룸에 있는 팀원의 타이머 시작 알림입니다.
+        payload:
+          type: object
+          properties:
+            userId:
+              type: string
+              format: uuid
+            userName:
+              type: string
+            checklistContent:
+              type: string
+            projectId:
+              type: string
+              format: uuid
+
+      - name: timer:member-stopped
+        summary: 팀원 타이머 정지 알림
+        description: 같은 프로젝트 룸에 있는 팀원의 타이머 정지 알림입니다.
+        payload:
+          type: object
+          properties:
+            userId:
+              type: string
+              format: uuid
+            userName:
+              type: string
+            durationMinutes:
+              type: integer
+            projectId:
+              type: string
+              format: uuid
+
+      - name: timer:error
+        summary: 에러 응답
+        payload:
+          type: object
+          properties:
+            code:
+              type: string
+              enum:
+                - ALREADY_RUNNING
+                - NOT_FOUND
+                - UNAUTHORIZED
+                - INVALID_CHECKLIST
+            message:
+              type: string
+
+  error-codes:
+    - code: ALREADY_RUNNING
+      description: 이미 진행 중인 타이머가 있습니다
+    - code: NOT_FOUND
+      description: TimeLog를 찾을 수 없습니다
+    - code: UNAUTHORIZED
+      description: 인증 실패 또는 권한 없음
+    - code: INVALID_CHECKLIST
+      description: 체크리스트를 찾을 수 없거나 접근 권한 없음
+
+  testing:
+    postman:
+      description: |
+        Postman에서 WebSocket 테스트:
+        1. 새 WebSocket 요청 생성
+        2. URL: ws://localhost:3000/timer (Socket.IO는 EIO=4 파라미터 필요)
+        3. 연결 후 메시지 전송 예시:
+           - 동기화: {"event":"timer:sync","data":{}}
+           - 시작: {"event":"timer:start","data":{"checklistId":"uuid"}}
+           - 정지: {"event":"timer:stop","data":{"timeLogId":"uuid"}}
+
+    socket-io-client:
+      description: |
+        Node.js Socket.IO 클라이언트 테스트:
+        ```javascript
+        const { io } = require('socket.io-client');
+
+        const socket = io('http://localhost:3000/timer', {
+          auth: { token: 'your-firebase-token' }
+        });
+
+        socket.on('connect', () => {
+          console.log('Connected:', socket.id);
+          socket.emit('timer:sync', {});
+        });
+
+        socket.on('timer:active', (data) => {
+          console.log('Active timer:', data);
+        });
+
+        socket.on('timer:none', () => {
+          console.log('No active timer');
+        });
+
+        socket.on('timer:error', (error) => {
+          console.error('Error:', error);
+        });
+        ```

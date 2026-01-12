@@ -7,6 +7,8 @@ import { RootNavigator } from '@navigation/index';
 import { api } from '@services/api';
 import { storage } from '@services/storage';
 import { COLORS } from '@constants/index';
+import { TimerProvider } from '@contexts/TimerContext';
+import socketService from '@services/socket';
 
 const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
@@ -20,17 +22,33 @@ const App: React.FC = () => {
     try {
       // Check for existing auth token
       const token = await storage.getAuthToken();
-      
+
       if (token) {
         api.setToken(token);
         // Verify token is still valid
         const profile = await api.getMe();
         if (profile.data) {
           setIsAuthenticated(true);
+          // WebSocket 연결
+          try {
+            await socketService.connect(token);
+            console.log('[App] WebSocket connected');
+          } catch (wsError) {
+            console.warn('[App] WebSocket connection failed:', wsError);
+            // WebSocket 연결 실패해도 앱은 정상 동작
+          }
         } else {
           // Token invalid, clear it
           await storage.removeAuthToken();
           await storage.removeUserData();
+        }
+      } else if (__DEV__) {
+        // 개발 모드에서는 dev-token으로 WebSocket 연결
+        try {
+          await socketService.connect('dev-token');
+          console.log('[App] WebSocket connected with dev-token');
+        } catch (wsError) {
+          console.warn('[App] WebSocket connection failed:', wsError);
         }
       }
     } catch (error) {
@@ -51,28 +69,30 @@ const App: React.FC = () => {
 
   return (
     <GestureHandlerRootView style={styles.container}>
-      <SafeAreaProvider>
-        <StatusBar
-          barStyle="dark-content"
-          backgroundColor={COLORS.background}
-          translucent={false}
-        />
-        <NavigationContainer
-          theme={{
-            dark: false,
-            colors: {
-              primary: COLORS.primary,
-              background: COLORS.background,
-              card: COLORS.surface,
-              text: COLORS.textPrimary,
-              border: COLORS.border,
-              notification: COLORS.error,
-            },
-          }}
-        >
-          <RootNavigator />
-        </NavigationContainer>
-      </SafeAreaProvider>
+      <TimerProvider>
+        <SafeAreaProvider>
+          <StatusBar
+            barStyle="dark-content"
+            backgroundColor={COLORS.background}
+            translucent={false}
+          />
+          <NavigationContainer
+            theme={{
+              dark: false,
+              colors: {
+                primary: COLORS.primary,
+                background: COLORS.background,
+                card: COLORS.surface,
+                text: COLORS.textPrimary,
+                border: COLORS.border,
+                notification: COLORS.error,
+              },
+            }}
+          >
+            <RootNavigator />
+          </NavigationContainer>
+        </SafeAreaProvider>
+      </TimerProvider>
     </GestureHandlerRootView>
   );
 };

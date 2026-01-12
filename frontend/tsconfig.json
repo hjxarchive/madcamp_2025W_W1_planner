@@ -19,7 +19,8 @@
       "@hooks/*": ["src/hooks/*"],
       "@utils/*": ["src/utils/*"],
       "@constants/*": ["src/constants/*"],
-      "@types/*": ["src/types/*"]
+      "@app-types/*": ["src/types/*"],
+      "@contexts/*": ["src/contexts/*"]
     },
     "allowSyntheticDefaultImports": true,
     "esModuleInterop": true,

@@ -92,6 +92,15 @@ export class TimeLogsService {
     };
   }
 
+  async getActiveTimer(userId: string) {
+    return this.prisma.timeLog.findFirst({
+      where: {
+        userId,
+        endedAt: null,
+      },
+    });
+  }
+
   async getTodaySummary(userId: string) {
     const today = new Date();
     today.setHours(0, 0, 0, 0);

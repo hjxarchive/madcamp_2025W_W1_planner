@@ -455,6 +455,215 @@ GET /api/time-logs/today
 
 > ℹ️ `timeLogs`: 오늘 기록된 모든 시간 로그 (시작/종료 시각 포함)
 > ℹ️ `completedTasks`: 오늘 완료한 체크리스트 (`updated_at`이 오늘인 항목 중 `is_completed = true`)
+
+---
+
+## 📌 Timer WebSocket (실시간 타이머)
+
+타이머 기능은 WebSocket을 통해 실시간으로 동기화됩니다. REST API (`/api/checklists/:checklistId/time-logs/start`, `/api/time-logs/:id/stop`)는 하위 호환성을 위해 유지되지만, 새로운 클라이언트는 WebSocket 사용을 권장합니다.
+
+### 연결
+
+```
+WebSocket URL: ws://<SERVER_IP>/timer
+               wss://<SERVER_IP>/timer (HTTPS 환경)
+```
+
+**연결 시 인증**:
+```javascript
+const socket = io('wss://your-domain.com/timer', {
+  auth: { token: '<firebase-id-token>' }
+});
+```
+
+> ℹ️ 개발 모드에서는 `token: 'dev-token'` 또는 토큰 없이 연결 가능
+
+### Client → Server 이벤트
+
+#### `timer:start` - 타이머 시작
+```json
+{ "checklistId": "checklist-uuid" }
+```
+
+#### `timer:stop` - 타이머 정지
+```json
+{ "timeLogId": "timelog-uuid" }
+```
+
+#### `timer:sync` - 현재 타이머 상태 요청
+```json
+{}
+```
+> 앱 시작 시 또는 재연결 후 호출하여 활성 타이머 상태를 동기화합니다.
+
+#### `room:join` - 프로젝트 룸 참가 (팀 타이머 알림 수신용)
+```json
+{ "projectId": "project-uuid" }
+```
+
+#### `room:leave` - 프로젝트 룸 퇴장
+```json
+{ "projectId": "project-uuid" }
+```
+
+### Server → Client 이벤트
+
+#### `timer:started` - 타이머 시작됨
+```json
+{
+  "timeLog": {
+    "id": "uuid",
+    "checklistId": "checklist-uuid",
+    "userId": "user-uuid",
+    "startedAt": "2025-01-10T09:00:00.000Z"
+  },
+  "checklist": {
+    "id": "checklist-uuid",
+    "content": "체크리스트 항목"
+  },
+  "project": {
+    "id": "project-uuid",
+    "title": "프로젝트 제목"
+  }
+}
+```
+
+#### `timer:stopped` - 타이머 정지됨
+```json
+{
+  "timeLog": {
+    "id": "uuid",
+    "checklistId": "checklist-uuid",
+    "userId": "user-uuid",
+    "startedAt": "2025-01-10T09:00:00.000Z",
+    "endedAt": "2025-01-10T11:30:00.000Z"
+  },
+  "durationMinutes": 150
+}
+```
+
+#### `timer:active` - 활성 타이머 정보 (sync 응답)
+```json
+{
+  "timeLog": {
+    "id": "uuid",
+    "checklistId": "checklist-uuid",
+    "userId": "user-uuid",
+    "startedAt": "2025-01-10T09:00:00.000Z"
+  },
+  "checklist": {
+    "id": "checklist-uuid",
+    "content": "체크리스트 항목"
+  },
+  "project": {
+    "id": "project-uuid",
+    "title": "프로젝트 제목"
+  },
+  "elapsedMs": 5400000
+}
+```
+
+#### `timer:none` - 활성 타이머 없음 (sync 응답)
+```json
+{}
+```
+
+#### `timer:tick` - 경과 시간 동기화 (30초마다 서버 푸시)
+```json
+{
+  "elapsedMs": 5430000,
+  "serverTime": "2025-01-10T10:30:30.000Z"
+}
+```
+
+#### `timer:member-started` - 팀원이 타이머 시작함
+```json
+{
+  "userId": "user-uuid",
+  "userName": "팀원닉네임",
+  "checklistContent": "체크리스트 항목",
+  "projectId": "project-uuid"
+}
+```
+> 같은 프로젝트 룸에 참가한 사용자에게만 전송됩니다.
+
+#### `timer:member-stopped` - 팀원이 타이머 정지함
+```json
+{
+  "userId": "user-uuid",
+  "userName": "팀원닉네임",
+  "durationMinutes": 90,
+  "projectId": "project-uuid"
+}
+```
+
+#### `timer:error` - 에러 발생
+```json
+{
+  "code": "ALREADY_RUNNING",
+  "message": "이미 진행 중인 타이머가 있습니다"
+}
+```
+
+**에러 코드**:
+| 코드 | 설명 |
+|------|------|
+| `UNAUTHORIZED` | 인증 실패 |
+| `USER_NOT_FOUND` | 사용자를 찾을 수 없음 |
+| `NOT_FOUND` | 리소스를 찾을 수 없음 |
+| `START_FAILED` | 타이머 시작 실패 |
+| `STOP_FAILED` | 타이머 정지 실패 |
+| `SYNC_FAILED` | 동기화 실패 |
+| `FORBIDDEN` | 권한 없음 |
+
+### 테스트 방법
+
+#### Postman
+1. 새 WebSocket 요청 생성
+2. URL: `wss://your-domain.com/timer`
+3. 연결 후 메시지 전송:
+   ```json
+   { "event": "timer:sync", "data": {} }
+   ```
+
+#### wscat (CLI)
+```bash
+# 설치
+npm install -g wscat
+
+# 연결 및 테스트
+wscat -c "wss://your-domain.com/timer" \
+  -H "Authorization: Bearer <firebase-token>"
+
+# 연결 후 메시지 전송
+> {"event":"timer:sync","data":{}}
+< {"event":"timer:active","data":{"timeLog":{...}}}
+```
+
+#### Socket.IO 클라이언트
+```javascript
+import { io } from 'socket.io-client';
+
+const socket = io('wss://your-domain.com/timer', {
+  auth: { token: 'your-firebase-token' }
+});
+
+socket.on('connect', () => {
+  console.log('Connected');
+  socket.emit('timer:sync', {});
+});
+
+socket.on('timer:active', (data) => {
+  console.log('Active timer:', data);
+});
+
+socket.on('timer:none', () => {
+  console.log('No active timer');
+});
+
+socket.on('timer:error', (error) => {
+  console.error('Error:', error);
+});
 ```
 
 ---
