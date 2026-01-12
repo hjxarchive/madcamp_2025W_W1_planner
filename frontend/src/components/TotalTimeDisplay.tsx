@@ -228,12 +228,11 @@ const styles = StyleSheet.create({
     color: COLORS.gray900,
     fontFamily: FONTS.mono,
   },
-  taskText: {
-    fontSize: FONT_SIZES.xs,
-    color: COLORS.textMuted,
-    marginTop: SPACING.sm,
-    maxWidth: 128,
-    textAlign: 'center',
+  timeText: {
+      fontSize: 30,
+      color: COLORS.gray900,
+      fontFamily: FONTS.monoBold, // ✅ medium과 동일 glyph
+      letterSpacing: 0.5,           // bold 느낌 보강
   },
   statusContainer: {
     flexDirection: 'row',

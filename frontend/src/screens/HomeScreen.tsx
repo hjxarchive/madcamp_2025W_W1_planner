@@ -8,7 +8,7 @@ import {
   RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import MaterialDesignIcons from '@react-native-vector-icons/material-design-icons';
 const Icon = MaterialDesignIcons;
@@ -138,9 +138,11 @@ export const HomeScreen: React.FC = () => {
     }
   }, []);
 
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
+  useFocusEffect(
+    useCallback(() => {
+      loadData();
+    }, [loadData])
+  );
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -360,6 +362,7 @@ export const HomeScreen: React.FC = () => {
       <FloatingTimer
         isRunning={isTimerRunning}
         elapsedTime={elapsedTime}
+        projectTotalTime={currentProject ? currentProject.totalTimeMs + elapsedTime : 0}
         project={currentProject}
         task={currentTask}
         onStop={handleStopTimer}
@@ -425,7 +428,7 @@ const styles = StyleSheet.create({
     color: COLORS.textPrimary,
   },
   headerSuffix: {
-    fontWeight: FONT_WEIGHTS.normal,
+    fontWeight: FONT_WEIGHTS.light,
     color: COLORS.textPrimary,
   },
   profileButton: {

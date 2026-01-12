@@ -111,7 +111,7 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({
           <View style={styles.statsRow}>
             <View style={styles.statItem}>
               <Icon name="clock-outline" size={14} color={isActive ? COLORS.primary : COLORS.textMuted} />
-              <Text style={[styles.statText, isActive && styles.statTextActive]}>
+              <Text style={[styles.statText, styles.timeText, isActive && styles.statTextActive]}>
                 {formatTimeShort(displayTime)}
               </Text>
             </View>
@@ -183,8 +183,8 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.xs,
   },
   title: {
-    fontSize: FONT_SIZES.md,
-    fontWeight: FONT_WEIGHTS.semibold,
+    fontSize: FONT_SIZES.base,
+    fontWeight: FONT_WEIGHTS.medium,
     color: COLORS.textPrimary,
     flex: 1,
   },
@@ -211,6 +211,9 @@ const styles = StyleSheet.create({
     fontSize: FONT_SIZES.xs,
     color: COLORS.textMuted,
     marginLeft: 4,
+  },
+  timeText: {
+    fontFamily: FONTS.mono,
   },
   statTextActive: {
     color: COLORS.primary,
