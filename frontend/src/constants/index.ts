@@ -95,36 +95,36 @@ export const FONTS = {
   // 굵은 폰트 (제목용)
   bold: Platform.select({
     ios: 'System',
-    android: 'Roboto',
+    android: 'RobotoMono',
   }) as string,
 
-  // 고정폭 폰트 (시간 표시용) - MomentoApp.jsx의 font-mono와 동일
-  mono: Platform.select({
-    ios: 'Menlo',
-    android: 'monospace',
-  }) as string,
+  // 고정폭 폰트 (시간 표시용) - Roboto Mono
+  mono: 'RobotoMono-Regular',
+  monoMedium: 'RobotoMono-Medium',
+  monoBold: 'RobotoMono-Bold',
 };
 
-// Font weights
+// Font weights (Tailwind CSS 기준)
 export const FONT_WEIGHTS = {
+  light: '300' as const,
   normal: '400' as const,
   medium: '500' as const,
   semibold: '600' as const,
   bold: '700' as const,
 };
 
-// Font sizes
+// Font sizes (Tailwind CSS 기준)
 export const FONT_SIZES = {
-  xs: 10,
-  sm: 12,
-  base: 14,
-  md: 16,
-  lg: 18,
-  xl: 20,
-  '2xl': 24,
-  '3xl': 30,
-  '4xl': 36,
-  '5xl': 48,
+  xs: 12,      // text-xs: 0.75rem = 12px
+  sm: 14,      // text-sm: 0.875rem = 14px
+  base: 16,    // text-base: 1rem = 16px
+  md: 16,      // alias for base
+  lg: 18,      // text-lg: 1.125rem = 18px
+  xl: 20,      // text-xl: 1.25rem = 20px
+  '2xl': 24,   // text-2xl: 1.5rem = 24px
+  '3xl': 30,   // text-3xl: 1.875rem = 30px
+  '4xl': 36,   // text-4xl: 2.25rem = 36px
+  '5xl': 48,   // text-5xl: 3rem = 48px
 };
 
 // Spacing

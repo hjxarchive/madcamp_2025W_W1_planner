@@ -10,6 +10,7 @@ interface TaskItemProps {
   onToggle: () => void;
   onStartTimer?: () => void;
   onStopTimer?: () => void;
+  onDelete?: () => void;
   isTimerRunning?: boolean;
   currentTaskId?: string;
   currentProjectId?: string;
@@ -24,6 +25,7 @@ export const TaskItem: React.FC<TaskItemProps> = ({
   onToggle,
   onStartTimer,
   onStopTimer,
+  onDelete,
   isTimerRunning = false,
   currentTaskId,
   currentProjectId,
@@ -111,6 +113,17 @@ export const TaskItem: React.FC<TaskItemProps> = ({
             size={18}
             color={isActive ? COLORS.error : (isTimerRunning && !isActive) ? COLORS.gray300 : COLORS.textMuted}
           />
+        </TouchableOpacity>
+      )}
+
+      {/* Delete button */}
+      {onDelete && !isActive && (
+        <TouchableOpacity
+          style={styles.deleteButton}
+          onPress={onDelete}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
+          <Icon name="trash-can-outline" size={18} color={COLORS.textMuted} />
         </TouchableOpacity>
       )}
     </View>
@@ -205,6 +218,14 @@ const styles = StyleSheet.create({
   },
   timerButtonDisabled: {
     opacity: 0.5,
+  },
+  deleteButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: SPACING.xs,
   },
 });
 

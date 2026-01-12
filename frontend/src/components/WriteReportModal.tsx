@@ -16,7 +16,7 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 import MaterialDesignIcons from '@react-native-vector-icons/material-design-icons';
 const Icon = MaterialDesignIcons;
 import { ReportDonutChart } from './ReportDonutChart';
-import { COLORS, FONT_SIZES, SPACING, BORDER_RADIUS, formatTime, formatTimeShort } from '@constants/index';
+import { COLORS, FONT_SIZES, FONTS, SPACING, BORDER_RADIUS, formatTime, formatTimeShort } from '@constants/index';
 
 interface Task {
   id: string;
@@ -129,7 +129,7 @@ export const WriteReportModal: React.FC<WriteReportModalProps> = ({
           <Text style={{ fontSize: 16, marginBottom: 8 }}>
             프로젝트: {project.title}
           </Text>
-          <Text style={{ fontSize: 14, color: '#666', marginBottom: 16 }}>
+          <Text style={{ fontSize: 14, color: '#666', marginBottom: 16, fontFamily: FONTS.mono }}>
             총 소요시간: {formatTime(project.totalTimeMs)}
           </Text>
           

@@ -18,7 +18,7 @@ import { FloatingTimer } from '@components/FloatingTimer';
 import { WriteReportModal } from '@components/WriteReportModal';
 import { AddTaskModal } from '@components/AddTaskModal';
 import { api } from '@services/api';
-import { COLORS, FONT_SIZES, SPACING, BORDER_RADIUS, formatTime, formatDate } from '@constants/index';
+import { COLORS, FONT_SIZES, FONTS, SPACING, BORDER_RADIUS, formatTime, formatDate } from '@constants/index';
 import type { Project, Task, Member } from '../types';
 import { transformProjectDetail } from '../types';
 
@@ -29,6 +29,8 @@ interface PersonalProjectPageProps {
   project: Project;
   onBack: () => void;
   onToggleTask: (taskId: string) => void;
+  onDeleteTask: (taskId: string) => void;
+  onDeleteProject: () => void;
   onStartTaskTimer: (task: Task) => void;
   onAddTask: () => void;
   isTimerRunning: boolean;
@@ -44,6 +46,8 @@ const PersonalProjectPage: React.FC<PersonalProjectPageProps> = ({
   project,
   onBack,
   onToggleTask,
+  onDeleteTask,
+  onDeleteProject,
   onStartTaskTimer,
   onAddTask,
   isTimerRunning,
@@ -85,14 +89,16 @@ const PersonalProjectPage: React.FC<PersonalProjectPageProps> = ({
               </View>
             )}
             <Text style={[
-              styles.headerTime, 
+              styles.headerTime,
               currentTaskInProject && isTimerRunning && styles.headerTimeActive
             ]}>
               {formatTime(displayTotalTime)}
             </Text>
           </View>
         </View>
-        <View style={styles.headerRight} />
+        <TouchableOpacity onPress={onDeleteProject} style={styles.deleteProjectButton}>
+          <Icon name="trash-can-outline" size={22} color={COLORS.textMuted} />
+        </TouchableOpacity>
       </View>
 
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
@@ -129,6 +135,7 @@ const PersonalProjectPage: React.FC<PersonalProjectPageProps> = ({
                   key={task.id}
                   task={task}
                   onToggle={() => onToggleTask(task.id)}
+                  onDelete={() => onDeleteTask(task.id)}
                   onStartTimer={() => onStartTaskTimer(task)}
                   isTimerRunning={isTimerRunning}
                   currentTaskId={currentTaskId || undefined}
@@ -140,7 +147,7 @@ const PersonalProjectPage: React.FC<PersonalProjectPageProps> = ({
             ) : (
               <Text style={styles.emptyTaskText}>Task가 없습니다</Text>
             )}
-            
+
             {/* Add Task Button */}
             <TouchableOpacity style={styles.addTaskButton} onPress={onAddTask}>
               <Icon name="plus" size={16} color={COLORS.textMuted} />
@@ -164,6 +171,7 @@ const PersonalProjectPage: React.FC<PersonalProjectPageProps> = ({
       <FloatingTimer
         isRunning={isTimerRunning}
         elapsedTime={elapsedTime}
+        projectTotalTime={displayTotalTime}
         project={currentTaskInProject ? project : null}
         task={currentTask}
         onStop={onStopTimer}
@@ -180,6 +188,8 @@ interface TeamProjectPageProps {
   project: Project;
   onBack: () => void;
   onToggleTask: (taskId: string) => void;
+  onDeleteTask: (taskId: string) => void;
+  onDeleteProject: () => void;
   onStartTaskTimer: (task: Task) => void;
   onAddTask: () => void;
   isTimerRunning: boolean;
@@ -195,6 +205,8 @@ const TeamProjectPage: React.FC<TeamProjectPageProps> = ({
   project,
   onBack,
   onToggleTask,
+  onDeleteTask,
+  onDeleteProject,
   onStartTaskTimer,
   onAddTask,
   isTimerRunning,
@@ -252,9 +264,14 @@ const TeamProjectPage: React.FC<TeamProjectPageProps> = ({
             </Text>
           </View>
         </View>
-        <TouchableOpacity style={styles.addMemberButton}>
-          <Text style={styles.addMemberText}>+ 팀원</Text>
-        </TouchableOpacity>
+        <View style={styles.headerRightButtons}>
+          <TouchableOpacity style={styles.addMemberButton}>
+            <Text style={styles.addMemberText}>+ 팀원</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={onDeleteProject} style={styles.deleteProjectButton}>
+            <Icon name="trash-can-outline" size={22} color={COLORS.textMuted} />
+          </TouchableOpacity>
+        </View>
       </View>
 
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
@@ -313,6 +330,7 @@ const TeamProjectPage: React.FC<TeamProjectPageProps> = ({
                   key={task.id}
                   task={task}
                   onToggle={() => onToggleTask(task.id)}
+                  onDelete={() => onDeleteTask(task.id)}
                   onStartTimer={() => onStartTaskTimer(task)}
                   isTimerRunning={isTimerRunning}
                   currentTaskId={currentTaskId || undefined}
@@ -350,6 +368,7 @@ const TeamProjectPage: React.FC<TeamProjectPageProps> = ({
       <FloatingTimer
         isRunning={isTimerRunning}
         elapsedTime={elapsedTime}
+        projectTotalTime={displayTotalTime}
         project={currentTaskInProject ? project : null}
         task={currentTask}
         onStop={onStopTimer}
@@ -519,9 +538,9 @@ export const ProjectDetailScreen: React.FC<ProjectDetailScreenProps> = ({ route 
 
   const handleAddTaskSubmit = useCallback(async (taskData: { content: string; assigneeId?: string; assigneeName?: string }) => {
     if (!project) return;
-    
+
     try {
-      const res = await api.createChecklist(project.id, { 
+      const res = await api.createChecklist(project.id, {
         content: taskData.content,
         assigneeId: taskData.assigneeId,
       });
@@ -536,6 +555,66 @@ export const ProjectDetailScreen: React.FC<ProjectDetailScreenProps> = ({ route 
       Alert.alert('오류', 'Task 추가에 실패했습니다.');
     }
   }, [project, loadProject]);
+
+  const handleDeleteTask = useCallback(async (taskId: string) => {
+    if (!project) return;
+
+    Alert.alert(
+      'Task 삭제',
+      '이 Task를 삭제하시겠습니까?',
+      [
+        { text: '취소', style: 'cancel' },
+        {
+          text: '삭제',
+          style: 'destructive',
+          onPress: async () => {
+            // Optimistic update
+            setProject(prev => {
+              if (!prev) return prev;
+              return {
+                ...prev,
+                tasks: prev.tasks.filter(t => t.id !== taskId),
+              };
+            });
+
+            try {
+              await api.deleteChecklist(taskId);
+            } catch (error) {
+              console.error('Task 삭제 실패:', error);
+              // 실패 시 프로젝트 다시 로드
+              loadProject(project.id);
+              Alert.alert('오류', 'Task 삭제에 실패했습니다.');
+            }
+          },
+        },
+      ]
+    );
+  }, [project, loadProject]);
+
+  const handleDeleteProject = useCallback(() => {
+    if (!project) return;
+
+    Alert.alert(
+      '프로젝트 삭제',
+      `"${project.title}" 프로젝트를 삭제하시겠습니까?\n모든 Task와 기록이 함께 삭제됩니다.`,
+      [
+        { text: '취소', style: 'cancel' },
+        {
+          text: '삭제',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await api.deleteProject(project.id);
+              navigation.goBack();
+            } catch (error) {
+              console.error('프로젝트 삭제 실패:', error);
+              Alert.alert('오류', '프로젝트 삭제에 실패했습니다.');
+            }
+          },
+        },
+      ]
+    );
+  }, [project, navigation]);
 
   const handleWriteReport = useCallback(() => {
     setShowWriteReport(true);
@@ -575,6 +654,8 @@ export const ProjectDetailScreen: React.FC<ProjectDetailScreenProps> = ({ route 
     project,
     onBack: handleBack,
     onToggleTask: handleToggleTask,
+    onDeleteTask: handleDeleteTask,
+    onDeleteProject: handleDeleteProject,
     onStartTaskTimer: handleStartTaskTimer,
     onAddTask: handleAddTask,
     isTimerRunning,
@@ -669,16 +750,18 @@ const styles = StyleSheet.create({
   },
   headerTime: {
     fontSize: FONT_SIZES.sm,
-    fontFamily: 'System',
+    fontFamily: FONTS.mono,
     color: COLORS.textSecondary,
   },
   headerTimeActive: {
     color: COLORS.primary,
     fontWeight: '600',
+    fontFamily: FONTS.mono,
   },
   headerTimeActiveTeam: {
     color: '#EA580C', // orange-600
     fontWeight: '700',
+    fontFamily: FONTS.mono,
   },
   headerRight: {
     width: 40,
@@ -710,6 +793,17 @@ const styles = StyleSheet.create({
   addMemberText: {
     fontSize: FONT_SIZES.xs,
     color: COLORS.textSecondary,
+  },
+  headerRightButtons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.xs,
+  },
+  deleteProjectButton: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   // Due Date
   dueDateContainer: {

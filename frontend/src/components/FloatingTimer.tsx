@@ -20,6 +20,7 @@ interface Project {
 interface FloatingTimerProps {
   isRunning: boolean;
   elapsedTime: number;
+  projectTotalTime?: number;
   project?: Project | null;
   task?: Task | null;
   onStop: () => void;
@@ -29,6 +30,7 @@ interface FloatingTimerProps {
 export const FloatingTimer: React.FC<FloatingTimerProps> = ({
   isRunning,
   elapsedTime,
+  projectTotalTime = 0,
   project,
   task,
   onStop,
@@ -82,9 +84,9 @@ export const FloatingTimer: React.FC<FloatingTimerProps> = ({
           </Text>
         </View>
 
-        {/* 시간 표시 */}
+        {/* 시간 표시 - 프로젝트 총 시간 */}
         <View style={styles.timeSection}>
-          <Text style={styles.timeText}>{formatTime(elapsedTime)}</Text>
+          <Text style={styles.timeText}>{formatTime(projectTotalTime)}</Text>
         </View>
 
         {/* 정지 버튼 */}
