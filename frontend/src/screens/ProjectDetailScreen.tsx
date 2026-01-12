@@ -449,21 +449,12 @@ export const ProjectDetailScreen: React.FC<ProjectDetailScreenProps> = ({ route 
     }
   }, [project, joinProjectRoom, leaveProjectRoom]);
 
-  // 타이머 정지 시 프로젝트 시간 업데이트 콜백 설정
+  // 타이머 정지 시 데이터 새로고침
   useEffect(() => {
-    const handleTimerStopped = (durationMs: number) => {
-      if (currentProject && currentTask && project && currentProject.id === project.id) {
-        setProject(prev => {
-          if (!prev) return prev;
-          const updatedTasks = prev.tasks.map(t =>
-            t.id !== currentTask.id ? t : { ...t, durationMs: (t.durationMs || 0) + durationMs }
-          );
-          return {
-            ...prev,
-            tasks: updatedTasks,
-            totalTimeMs: prev.totalTimeMs + durationMs,
-          };
-        });
+    const handleTimerStopped = (_durationMs: number) => {
+      // 서버에서 최신 데이터 다시 로드 (초 단위 정밀도 보장)
+      if (project) {
+        loadProject(project.id);
       }
     };
 
@@ -472,7 +463,7 @@ export const ProjectDetailScreen: React.FC<ProjectDetailScreenProps> = ({ route 
     return () => {
       setOnTimerStopped(null);
     };
-  }, [currentProject, currentTask, project, setOnTimerStopped]);
+  }, [project, loadProject, setOnTimerStopped]);
 
   // Handlers
   const handleBack = useCallback(() => {

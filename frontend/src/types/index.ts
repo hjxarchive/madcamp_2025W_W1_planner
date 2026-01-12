@@ -115,14 +115,15 @@ export const transformChecklist = (
   projectId: string,
   projectTitle?: string
 ): Task => {
-  console.log('transformChecklist - input:', { id: checklist.id, content: checklist.content, totalTimeMinutes: checklist.totalTimeMinutes });
-  const durationMs = checklist.totalTimeMinutes * 60 * 1000;
-  console.log('transformChecklist - durationMs:', durationMs);
+  // 초 단위 정밀도 사용 (totalTimeSeconds가 있으면 사용, 없으면 minutes로 fallback)
+  const durationMs = (checklist as any).totalTimeSeconds
+    ? (checklist as any).totalTimeSeconds * 1000
+    : checklist.totalTimeMinutes * 60 * 1000;
   return {
     id: checklist.id,
     content: checklist.content,
     isDone: checklist.isCompleted,
-    durationMs, // minutes → ms
+    durationMs,
     projectId,
     projectTitle,
     assigneeId: checklist.assigneeId,
@@ -142,45 +143,63 @@ export const transformMember = (member: ProjectMember, totalTimeMinutes: number 
 });
 
 /** API ProjectSummary → UI Project 변환 */
-export const transformProjectSummary = (summary: ProjectSummary): Project => ({
-  id: summary.id,
-  title: summary.title,
-  totalTimeMs: summary.totalTimeMinutes * 60 * 1000,
-  dueDate: summary.plannedEndDate ? new Date(summary.plannedEndDate) : null,
-  memberCount: summary.memberCount,
-  tasks: [], // Summary에는 task 목록이 없음
-  status: summary.status,
-  coverImageUrl: summary.coverImageUrl,
-  report: summary.status === 'COMPLETED' && summary.rating
-    ? {
-        rating: summary.rating,
-        createdAt: summary.completedAt ? new Date(summary.completedAt) : new Date(),
-        totalTimeMs: summary.totalTimeMinutes * 60 * 1000,
-        completedTasks: summary.completedChecklistCount,
-      }
-    : null,
-});
+export const transformProjectSummary = (summary: ProjectSummary): Project => {
+  // 초 단위 정밀도 사용 (totalTimeSeconds가 있으면 사용, 없으면 minutes로 fallback)
+  const totalTimeMs = (summary as any).totalTimeSeconds
+    ? (summary as any).totalTimeSeconds * 1000
+    : summary.totalTimeMinutes * 60 * 1000;
+
+  return {
+    id: summary.id,
+    title: summary.title,
+    totalTimeMs,
+    dueDate: summary.plannedEndDate ? new Date(summary.plannedEndDate) : null,
+    memberCount: summary.memberCount,
+    tasks: [], // Summary에는 task 목록이 없음
+    status: summary.status,
+    coverImageUrl: summary.coverImageUrl,
+    report: summary.status === 'COMPLETED' && summary.rating
+      ? {
+          rating: summary.rating,
+          createdAt: summary.completedAt ? new Date(summary.completedAt) : new Date(),
+          totalTimeMs,
+          completedTasks: summary.completedChecklistCount,
+        }
+      : null,
+  };
+};
 
 /** API ProjectDetail → UI Project 변환 */
-export const transformProjectDetail = (detail: ProjectDetail): Project => ({
-  id: detail.id,
-  title: detail.title,
-  totalTimeMs: detail.checklists.reduce((sum, c) => sum + c.totalTimeMinutes, 0) * 60 * 1000,
-  dueDate: detail.plannedEndDate ? new Date(detail.plannedEndDate) : null,
-  memberCount: detail.members.length,
-  tasks: detail.checklists.map(c => transformChecklist(c, detail.id, detail.title)),
-  members: detail.members.map(m => transformMember(m)),
-  status: detail.status,
-  coverImageUrl: detail.coverImageUrl,
-  report: detail.status === 'COMPLETED' && detail.rating
-    ? {
-        rating: detail.rating,
-        createdAt: detail.completedAt ? new Date(detail.completedAt) : new Date(),
-        totalTimeMs: detail.checklists.reduce((sum, c) => sum + c.totalTimeMinutes, 0) * 60 * 1000,
-        completedTasks: detail.checklists.filter(c => c.isCompleted).length,
-      }
-    : null,
-});
+export const transformProjectDetail = (detail: ProjectDetail): Project => {
+  // 초 단위 정밀도 사용 (totalTimeSeconds가 있으면 사용, 없으면 minutes로 fallback)
+  const totalTimeMs = detail.checklists.reduce((sum, c) => {
+    const seconds = (c as any).totalTimeSeconds;
+    if (seconds !== undefined) {
+      return sum + seconds * 1000;
+    }
+    return sum + c.totalTimeMinutes * 60 * 1000;
+  }, 0);
+
+  return {
+    id: detail.id,
+    title: detail.title,
+    totalTimeMs,
+    dueDate: detail.plannedEndDate ? new Date(detail.plannedEndDate) : null,
+    memberCount: detail.members.length,
+    tasks: detail.checklists.map(c => transformChecklist(c, detail.id, detail.title)),
+    members: detail.members.map(m => transformMember(m)),
+    status: detail.status,
+    coverImageUrl: detail.coverImageUrl,
+    report: detail.status === 'COMPLETED' && detail.rating
+      ? {
+          rating: detail.rating,
+          createdAt: detail.completedAt ? new Date(detail.completedAt) : new Date(),
+          totalTimeMs,
+          completedTasks: detail.checklists.filter(c => c.isCompleted).length,
+        }
+      : null,
+  };
+};
 
 /** API TodaySummary → DailyArchive 변환 */
 export const transformTodaySummary = (summary: TodaySummaryResponse): DailyArchive => {

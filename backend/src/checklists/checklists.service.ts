@@ -123,15 +123,18 @@ export class ChecklistsService {
   }
 
   private toResponse(checklist: any) {
-    const totalTimeMinutes = (checklist.timeLogs || []).reduce(
+    // 초 단위 정밀도로 계산
+    const totalTimeMs = (checklist.timeLogs || []).reduce(
       (sum: number, log: any) => {
         if (!log.endedAt) return sum;
         const durationMs =
           new Date(log.endedAt).getTime() - new Date(log.startedAt).getTime();
-        return sum + Math.floor(durationMs / 60000);
+        return sum + durationMs;
       },
       0,
     );
+    const totalTimeMinutes = Math.floor(totalTimeMs / 60000);
+    const totalTimeSeconds = Math.floor(totalTimeMs / 1000);
 
     return {
       id: checklist.id,
@@ -141,6 +144,7 @@ export class ChecklistsService {
       assigneeNickname: checklist.assignee?.nickname ?? null,
       displayOrder: checklist.displayOrder,
       totalTimeMinutes,
+      totalTimeSeconds, // 초 단위 정밀도
     };
   }
 }

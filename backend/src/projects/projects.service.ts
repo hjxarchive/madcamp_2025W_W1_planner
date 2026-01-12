@@ -327,6 +327,7 @@ export class ProjectsService {
       (c: any) => c.isCompleted,
     ).length;
     const totalTime = this.calculateTotalTime(project.checklists);
+    const totalTimeSeconds = this.calculateTotalTimeSeconds(project.checklists);
 
     return {
       id: project.id,
@@ -345,6 +346,7 @@ export class ProjectsService {
       completedChecklistCount: completedCount,
       totalChecklistCount: project.checklists.length,
       totalTimeMinutes: totalTime,
+      totalTimeSeconds, // 초 단위 정밀도
       createdAt: project.createdAt,
     };
   }
@@ -378,6 +380,7 @@ export class ProjectsService {
         assigneeNickname: c.assignee?.nickname ?? null,
         displayOrder: c.displayOrder,
         totalTimeMinutes: this.calculateChecklistTime(c.timeLogs || []),
+        totalTimeSeconds: this.calculateChecklistTimeSeconds(c.timeLogs || []),
       })),
       createdAt: project.createdAt,
     };
@@ -393,12 +396,27 @@ export class ProjectsService {
     }, 0);
   }
 
+  private calculateTotalTimeSeconds(checklists: any[]) {
+    return checklists.reduce((sum, c) => {
+      return sum + this.calculateChecklistTimeSeconds(c.timeLogs || []);
+    }, 0);
+  }
+
   private calculateChecklistTime(timeLogs: any[]) {
     return timeLogs.reduce((sum: number, log: any) => {
       if (!log.endedAt) return sum;
       const durationMs =
         new Date(log.endedAt).getTime() - new Date(log.startedAt).getTime();
       return sum + Math.floor(durationMs / 60000);
+    }, 0);
+  }
+
+  private calculateChecklistTimeSeconds(timeLogs: any[]) {
+    return timeLogs.reduce((sum: number, log: any) => {
+      if (!log.endedAt) return sum;
+      const durationMs =
+        new Date(log.endedAt).getTime() - new Date(log.startedAt).getTime();
+      return sum + Math.floor(durationMs / 1000);
     }, 0);
   }
 }

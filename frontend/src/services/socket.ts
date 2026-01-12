@@ -1,5 +1,12 @@
 import { io, Socket } from 'socket.io-client';
-import { WS_URL } from '@constants/index';
+import { API_BASE_URL } from '@constants/index';
+
+// Socket.IO는 http:// 프로토콜을 사용 (ws:// 아님)
+// API_BASE_URL: http://172.10.5.61/api → 서버 주소: http://172.10.5.61
+const getServerUrl = () => {
+  // API_BASE_URL에서 /api 제거
+  return API_BASE_URL.replace(/\/api$/, '');
+};
 
 // Server -> Client 이벤트 페이로드 타입
 export interface TimerStartedPayload {
@@ -17,6 +24,7 @@ export interface TimerStartedPayload {
     id: string;
     title: string;
   };
+  elapsedMs: number; // 서버 기준 경과 시간
 }
 
 export interface TimerStoppedPayload {
@@ -28,6 +36,7 @@ export interface TimerStoppedPayload {
     endedAt: string;
   };
   durationMinutes: number;
+  durationMs: number; // 초 단위 정밀도를 위한 밀리초
 }
 
 export interface TimerActivePayload {
@@ -87,12 +96,13 @@ class SocketService {
         return;
       }
 
-      const wsUrl = `${WS_URL}/timer`;
-      console.log(`[Socket] Connecting to ${wsUrl}`);
+      const serverUrl = getServerUrl();
+      const socketUrl = `${serverUrl}/timer`;
+      console.log(`[Socket] Connecting to ${socketUrl}`);
 
-      this.socket = io(wsUrl, {
+      this.socket = io(socketUrl, {
         auth: { token },
-        transports: ['websocket'],
+        transports: ['websocket', 'polling'], // WebSocket 우선, 폴링 fallback
         reconnection: true,
         reconnectionAttempts: this.maxReconnectAttempts,
         reconnectionDelay: this.reconnectDelay,

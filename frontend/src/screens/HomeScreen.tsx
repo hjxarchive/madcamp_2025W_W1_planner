@@ -113,27 +113,6 @@ export const HomeScreen: React.FC = () => {
   // 오늘의 Task
   const todayTasks = getTodayTasks(projects);
 
-  // 타이머 정지 시 프로젝트 시간 업데이트 콜백 설정
-  useEffect(() => {
-    const handleTimerStopped = (durationMs: number) => {
-      if (currentProject && currentTask) {
-        setProjects(prev => prev.map(p => {
-          if (p.id !== currentProject.id) return p;
-          const updatedTasks = p.tasks.map(t =>
-            t.id !== currentTask.id ? t : { ...t, durationMs: (t.durationMs || 0) + durationMs }
-          );
-          return { ...p, tasks: updatedTasks, totalTimeMs: p.totalTimeMs + durationMs };
-        }));
-      }
-    };
-
-    setOnTimerStopped(handleTimerStopped);
-
-    return () => {
-      setOnTimerStopped(null);
-    };
-  }, [currentProject, currentTask, setOnTimerStopped]);
-
   const loadData = useCallback(async () => {
     try {
       // 사용자 정보 로드
@@ -167,6 +146,20 @@ export const HomeScreen: React.FC = () => {
       setIsLoading(false);
     }
   }, []);
+
+  // 타이머 정지 시 데이터 새로고침
+  useEffect(() => {
+    const handleTimerStopped = (_durationMs: number) => {
+      // 서버에서 최신 데이터 다시 로드 (초 단위 정밀도 보장)
+      loadData();
+    };
+
+    setOnTimerStopped(handleTimerStopped);
+
+    return () => {
+      setOnTimerStopped(null);
+    };
+  }, [setOnTimerStopped, loadData]);
 
   useFocusEffect(
     useCallback(() => {

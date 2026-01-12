@@ -170,6 +170,8 @@ export class TimerGateway implements OnGatewayConnection, OnGatewayDisconnect {
         return this.emitError(client, 'NOT_FOUND', '체크리스트를 찾을 수 없습니다');
       }
 
+      const elapsedMs = Date.now() - result.startedAt.getTime();
+
       const payload: TimerStartedPayload = {
         timeLog: {
           id: result.id,
@@ -185,6 +187,7 @@ export class TimerGateway implements OnGatewayConnection, OnGatewayDisconnect {
           id: checklist.project.id,
           title: checklist.project.title,
         },
+        elapsedMs,
       };
 
       // 본인에게 알림 (모든 기기)
@@ -238,6 +241,9 @@ export class TimerGateway implements OnGatewayConnection, OnGatewayDisconnect {
         data.timeLogId,
       );
 
+      // 초 단위 정밀도를 위해 startedAt, endedAt에서 직접 계산
+      const durationMs = result.endedAt!.getTime() - result.startedAt.getTime();
+
       const payload: TimerStoppedPayload = {
         timeLog: {
           id: result.id,
@@ -247,6 +253,7 @@ export class TimerGateway implements OnGatewayConnection, OnGatewayDisconnect {
           endedAt: result.endedAt!,
         },
         durationMinutes: result.durationMinutes,
+        durationMs,
       };
 
       // 본인에게 알림 (모든 기기)

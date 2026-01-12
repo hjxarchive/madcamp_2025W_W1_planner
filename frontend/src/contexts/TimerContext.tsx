@@ -71,22 +71,24 @@ export const TimerProvider: React.FC<TimerProviderProps> = ({ children }) => {
 
   const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const appStateRef = useRef<AppStateStatus>(AppState.currentState);
-  const startedAtRef = useRef<Date | null>(null);
+  // 서버에서 받은 elapsedMs와 그 시점의 로컬 시간
+  const serverElapsedRef = useRef<number>(0);
+  const localBaseTimeRef = useRef<number>(0);
 
-  // 로컬 타이머 시작
-  const startLocalTimer = useCallback((startedAt: Date) => {
-    startedAtRef.current = startedAt;
-    const initialElapsed = Date.now() - startedAt.getTime();
-    setElapsedTime(initialElapsed);
+  // 로컬 타이머 시작 (서버의 elapsedMs 기준)
+  const startLocalTimer = useCallback((serverElapsedMs: number) => {
+    serverElapsedRef.current = serverElapsedMs;
+    localBaseTimeRef.current = Date.now();
+    setElapsedTime(Math.max(0, serverElapsedMs));
 
     if (timerIntervalRef.current) {
       clearInterval(timerIntervalRef.current);
     }
 
     timerIntervalRef.current = setInterval(() => {
-      if (startedAtRef.current) {
-        setElapsedTime(Date.now() - startedAtRef.current.getTime());
-      }
+      // 서버 elapsedMs + 로컬에서 경과한 시간
+      const localElapsed = Date.now() - localBaseTimeRef.current;
+      setElapsedTime(Math.max(0, serverElapsedRef.current + localElapsed));
     }, 1000);
   }, []);
 
@@ -96,7 +98,8 @@ export const TimerProvider: React.FC<TimerProviderProps> = ({ children }) => {
       clearInterval(timerIntervalRef.current);
       timerIntervalRef.current = null;
     }
-    startedAtRef.current = null;
+    serverElapsedRef.current = 0;
+    localBaseTimeRef.current = 0;
     setElapsedTime(0);
   }, []);
 
@@ -107,13 +110,16 @@ export const TimerProvider: React.FC<TimerProviderProps> = ({ children }) => {
       console.log('[TimerContext] timer:started', data);
       setActiveTimeLogId(data.timeLog.id);
       setIsTimerRunning(true);
-      startLocalTimer(new Date(data.timeLog.startedAt));
+      // 서버에서 받은 elapsedMs 사용 (undefined면 0으로 시작)
+      const elapsedMs = data.elapsedMs ?? 0;
+      startLocalTimer(elapsedMs);
     });
 
     // timer:stopped - 본인의 타이머가 정지됨
     socketService.onTimerStopped((data: TimerStoppedPayload) => {
       console.log('[TimerContext] timer:stopped', data);
-      const durationMs = data.durationMinutes * 60 * 1000;
+      // 초 단위 정밀도를 위해 durationMs 사용
+      const durationMs = data.durationMs ?? (data.durationMinutes * 60 * 1000);
 
       if (onTimerStopped) {
         onTimerStopped(durationMs);
@@ -148,7 +154,9 @@ export const TimerProvider: React.FC<TimerProviderProps> = ({ children }) => {
         projectId: data.project.id,
       });
 
-      startLocalTimer(new Date(data.timeLog.startedAt));
+      // 서버에서 받은 elapsedMs 사용 (undefined면 0으로 시작)
+      const elapsedMs = data.elapsedMs ?? 0;
+      startLocalTimer(elapsedMs);
     });
 
     // timer:none - 활성 타이머 없음 (sync 응답)
@@ -161,11 +169,13 @@ export const TimerProvider: React.FC<TimerProviderProps> = ({ children }) => {
       stopLocalTimer();
     });
 
-    // timer:tick - 서버에서 주기적으로 보내는 시간 동기화
+    // timer:tick - 서버에서 주기적으로 보내는 시간 동기화 (30초마다)
     socketService.onTimerTick((data: TimerTickPayload) => {
       console.log('[TimerContext] timer:tick', data);
-      // 서버 시간으로 보정
-      setElapsedTime(data.elapsedMs);
+      // 서버 시간 기준으로 재동기화
+      serverElapsedRef.current = data.elapsedMs;
+      localBaseTimeRef.current = Date.now();
+      setElapsedTime(Math.max(0, data.elapsedMs));
     });
 
     // timer:member-started - 팀원이 타이머 시작
@@ -259,15 +269,12 @@ export const TimerProvider: React.FC<TimerProviderProps> = ({ children }) => {
   }, [stopLocalTimer]);
 
   const startTimer = useCallback((checklistId: string, project: Project, task: Task) => {
-    // Optimistic update
+    // 프로젝트/태스크 정보만 미리 설정 (타이머는 서버 응답 후 시작)
     setCurrentProject(project);
     setCurrentTask(task);
-    setIsTimerRunning(true);
-    startLocalTimer(new Date());
-
-    // 서버에 요청
+    // 서버에 요청 - timer:started 이벤트에서 실제 타이머 시작
     socketService.startTimer(checklistId);
-  }, [startLocalTimer]);
+  }, []);
 
   const stopTimer = useCallback(() => {
     if (!activeTimeLogId) {

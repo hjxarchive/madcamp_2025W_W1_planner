@@ -30,6 +30,7 @@ export interface TimerStartedPayload {
     id: string;
     title: string;
   };
+  elapsedMs: number; // 서버 기준 경과 시간 (시작 직후이므로 거의 0)
 }
 
 export interface TimerStoppedPayload {
@@ -41,6 +42,7 @@ export interface TimerStoppedPayload {
     endedAt: Date;
   };
   durationMinutes: number;
+  durationMs: number; // 초 단위 정밀도를 위한 밀리초
 }
 
 export interface TimerActivePayload {
