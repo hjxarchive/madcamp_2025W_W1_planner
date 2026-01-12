@@ -74,6 +74,8 @@ export const TimerProvider: React.FC<TimerProviderProps> = ({ children }) => {
   // 서버에서 받은 elapsedMs와 그 시점의 로컬 시간
   const serverElapsedRef = useRef<number>(0);
   const localBaseTimeRef = useRef<number>(0);
+  // START_FAILED 후 sync -> 자동 종료를 위한 플래그
+  const pendingStopAfterSyncRef = useRef<boolean>(false);
 
   // 로컬 타이머 시작 (서버의 elapsedMs 기준)
   const startLocalTimer = useCallback((serverElapsedMs: number) => {
@@ -135,6 +137,19 @@ export const TimerProvider: React.FC<TimerProviderProps> = ({ children }) => {
     // timer:active - 활성 타이머가 있음 (sync 응답)
     socketService.onTimerActive((data: TimerActivePayload) => {
       console.log('[TimerContext] timer:active', data);
+
+      // START_FAILED 후 자동 종료가 필요한 경우
+      if (pendingStopAfterSyncRef.current) {
+        pendingStopAfterSyncRef.current = false;
+        // 기존 타이머 종료
+        socketService.stopTimer(data.timeLog.id);
+        Alert.alert(
+          '기존 타이머 종료',
+          `이미 진행 중이던 타이머가 종료되었습니다.\n\n프로젝트: ${data.project.title}\n태스크: ${data.checklist.content}`,
+        );
+        return;
+      }
+
       setActiveTimeLogId(data.timeLog.id);
       setIsTimerRunning(true);
 
@@ -162,6 +177,10 @@ export const TimerProvider: React.FC<TimerProviderProps> = ({ children }) => {
     // timer:none - 활성 타이머 없음 (sync 응답)
     socketService.onTimerNone(() => {
       console.log('[TimerContext] timer:none');
+      // START_FAILED 후 sync했는데 활성 타이머가 없는 경우 (다른 기기에서 이미 종료됨)
+      if (pendingStopAfterSyncRef.current) {
+        pendingStopAfterSyncRef.current = false;
+      }
       setIsTimerRunning(false);
       setActiveTimeLogId(null);
       setCurrentProject(null);
@@ -213,6 +232,16 @@ export const TimerProvider: React.FC<TimerProviderProps> = ({ children }) => {
     // timer:error - 에러 발생
     socketService.onTimerError((data: TimerErrorPayload) => {
       console.error('[TimerContext] timer:error', data);
+
+      // START_FAILED: 이미 진행 중인 타이머가 있는 경우 자동 종료
+      if (data.code === 'START_FAILED') {
+        pendingStopAfterSyncRef.current = true;
+        // sync로 활성 타이머 정보를 가져와서 자동 종료
+        socketService.syncTimer();
+        return;
+      }
+
+      // 기타 에러는 알림으로 표시
       Alert.alert('타이머 오류', data.message);
     });
 

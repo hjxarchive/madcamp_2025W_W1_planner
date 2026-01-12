@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import MaterialDesignIcons from '@react-native-vector-icons/material-design-icons';
 const Icon = MaterialDesignIcons;
-import { COLORS, FONT_SIZES, FONTS, FONT_WEIGHTS, SPACING, BORDER_RADIUS, formatTime, formatTimeShort } from '@constants/index';
+import { COLORS, FONT_SIZES, FONTS, FONT_WEIGHTS, SPACING, BORDER_RADIUS, formatTimeShort } from '@constants/index';
 import type { Task } from '../types';
 
 interface TaskItemProps {
@@ -90,10 +90,10 @@ export const TaskItem: React.FC<TaskItemProps> = ({
         )}
       </View>
 
-      {/* Duration display - 실행 중일 때는 초 단위까지 표시 */}
+      {/* Duration display - ⏱ 시:분:초 형식 */}
       {(displayTime > 0 || isActive) && (
         <Text style={[styles.duration, isActive && styles.durationActive]}>
-          {isActive ? formatTime(displayTime) : formatTimeShort(displayTime)}
+          ⏱ {formatTimeShort(displayTime)}
         </Text>
       )}
 

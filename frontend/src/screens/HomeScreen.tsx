@@ -90,7 +90,6 @@ export const HomeScreen: React.FC = () => {
     currentTask,
     startTimer,
     stopTimer,
-    setOnTimerStopped,
   } = useTimer();
 
   // Profile modal state
@@ -147,19 +146,15 @@ export const HomeScreen: React.FC = () => {
     }
   }, []);
 
-  // 타이머 정지 시 데이터 새로고침
+  // 타이머 상태 변화 감지 (타이머 정지 시 데이터 새로고침)
+  const prevTimerRunningRef = React.useRef(isTimerRunning);
   useEffect(() => {
-    const handleTimerStopped = (_durationMs: number) => {
-      // 서버에서 최신 데이터 다시 로드 (초 단위 정밀도 보장)
+    // 타이머가 실행 중 → 정지됨 으로 변할 때만 새로고침
+    if (prevTimerRunningRef.current && !isTimerRunning) {
       loadData();
-    };
-
-    setOnTimerStopped(handleTimerStopped);
-
-    return () => {
-      setOnTimerStopped(null);
-    };
-  }, [setOnTimerStopped, loadData]);
+    }
+    prevTimerRunningRef.current = isTimerRunning;
+  }, [isTimerRunning, loadData]);
 
   useFocusEffect(
     useCallback(() => {

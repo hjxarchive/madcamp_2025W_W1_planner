@@ -402,7 +402,6 @@ export const ProjectDetailScreen: React.FC<ProjectDetailScreenProps> = ({ route 
     currentTask,
     startTimer,
     stopTimer,
-    setOnTimerStopped,
     joinProjectRoom,
     leaveProjectRoom,
     memberTimers,
@@ -449,21 +448,18 @@ export const ProjectDetailScreen: React.FC<ProjectDetailScreenProps> = ({ route 
     }
   }, [project, joinProjectRoom, leaveProjectRoom]);
 
-  // 타이머 정지 시 데이터 새로고침
+  // 타이머 상태 변화 감지 (타이머 정지 시 데이터 새로고침)
+  const prevTimerRunningRef = React.useRef(isTimerRunning);
+  const projectIdRef = React.useRef<string | null>(null);
+  projectIdRef.current = project?.id ?? null;
+
   useEffect(() => {
-    const handleTimerStopped = (_durationMs: number) => {
-      // 서버에서 최신 데이터 다시 로드 (초 단위 정밀도 보장)
-      if (project) {
-        loadProject(project.id);
-      }
-    };
-
-    setOnTimerStopped(handleTimerStopped);
-
-    return () => {
-      setOnTimerStopped(null);
-    };
-  }, [project, loadProject, setOnTimerStopped]);
+    // 타이머가 실행 중 → 정지됨 으로 변할 때만 새로고침
+    if (prevTimerRunningRef.current && !isTimerRunning && projectIdRef.current) {
+      loadProject(projectIdRef.current);
+    }
+    prevTimerRunningRef.current = isTimerRunning;
+  }, [isTimerRunning, loadProject]);
 
   // Handlers
   const handleBack = useCallback(() => {
