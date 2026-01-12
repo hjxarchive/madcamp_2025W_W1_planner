@@ -24,6 +24,60 @@ export class ReceiptsController {
     private readonly usersService: UsersService,
   ) {}
 
+  // 진단용 엔드포인트: Chromium 및 환경 확인
+  @Get('diagnostic')
+  async diagnostic() {
+    const fs = await import('fs');
+    const path = await import('path');
+    const { execSync } = await import('child_process');
+
+    const diagnostics: Record<string, unknown> = {
+      timestamp: new Date().toISOString(),
+      nodeVersion: process.version,
+      platform: process.platform,
+      arch: process.arch,
+    };
+
+    // Chromium 경로 확인
+    const chromiumPaths = [
+      '/usr/bin/chromium-browser',
+      '/usr/bin/chromium',
+      '/snap/bin/chromium',
+    ];
+
+    diagnostics.chromiumPaths = {};
+    for (const p of chromiumPaths) {
+      (diagnostics.chromiumPaths as Record<string, boolean>)[p] = fs.existsSync(p);
+    }
+
+    // 업로드 디렉토리 확인
+    const uploadDir = path.join(process.cwd(), 'uploads', 'receipts');
+    diagnostics.uploadDir = {
+      path: uploadDir,
+      exists: fs.existsSync(uploadDir),
+      writable: false,
+    };
+
+    if (fs.existsSync(uploadDir)) {
+      try {
+        fs.accessSync(uploadDir, fs.constants.W_OK);
+        (diagnostics.uploadDir as Record<string, unknown>).writable = true;
+      } catch {
+        (diagnostics.uploadDir as Record<string, unknown>).writable = false;
+      }
+    }
+
+    // Chromium 버전 확인
+    try {
+      const chromiumVersion = execSync('chromium-browser --version 2>/dev/null || chromium --version 2>/dev/null || echo "not found"').toString().trim();
+      diagnostics.chromiumVersion = chromiumVersion;
+    } catch {
+      diagnostics.chromiumVersion = 'error checking version';
+    }
+
+    return diagnostics;
+  }
+
   @Get()
   async findAll(
     @CurrentUser() user: FirebaseUser,

@@ -166,17 +166,22 @@ export class ReceiptsService {
     totalMinutes: number;
     completedTasksCount: number;
   }> {
-    const date = new Date(dateStr);
-    date.setHours(0, 0, 0, 0);
+    this.logger.log(`[generateImage] 시작: userId=${userId}, dateStr=${dateStr}`);
 
-    // 사용자 정보 조회
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-    });
+    try {
+      const date = new Date(dateStr);
+      date.setHours(0, 0, 0, 0);
+      this.logger.log(`[generateImage] 날짜 파싱 완료: ${date.toISOString()}`);
 
-    if (!user) {
-      throw new NotFoundException('사용자를 찾을 수 없습니다');
-    }
+      // 사용자 정보 조회
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+      });
+      this.logger.log(`[generateImage] 사용자 조회 완료: ${user?.nickname || 'NOT FOUND'}`);
+
+      if (!user) {
+        throw new NotFoundException('사용자를 찾을 수 없습니다');
+      }
 
     // 해당 날짜의 통계 계산
     const startOfDay = new Date(date);
@@ -301,6 +306,11 @@ export class ReceiptsService {
       totalMinutes: updatedReceipt.totalMinutes,
       completedTasksCount: updatedReceipt.completedTasksCount,
     };
+    } catch (error) {
+      this.logger.error(`[generateImage] 에러 발생: ${error.message}`);
+      this.logger.error(`[generateImage] 스택 트레이스:`, error.stack);
+      throw error;
+    }
   }
 
   /**

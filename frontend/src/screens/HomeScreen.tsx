@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,8 @@ import {
   RefreshControl,
   Modal,
   Alert,
+  AppState,
+  AppStateStatus,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
@@ -106,8 +108,11 @@ export const HomeScreen: React.FC = () => {
   const [receiptData, setReceiptData] = useState<ReceiptData | null>(null);
   const [isLoadingReceipt, setIsLoadingReceipt] = useState(false);
 
-  // 전체 시간 계산
-  const totalTimeMs = projects.reduce((sum, p) => sum + p.totalTimeMs, 0);
+  // 오늘의 총 시간 (자정에 리셋됨)
+  const [todayTotalTimeMs, setTodayTotalTimeMs] = useState(0);
+
+  // 프로젝트 전체 시간 계산 (참고용)
+  const projectTotalTimeMs = projects.reduce((sum, p) => sum + p.totalTimeMs, 0);
 
   // 오늘의 Task
   const todayTasks = getTodayTasks(projects);
@@ -118,6 +123,16 @@ export const HomeScreen: React.FC = () => {
       const userRes = await api.getMe();
       if (userRes.data) {
         setUser(transformApiUser(userRes.data));
+      }
+
+      // 오늘의 총 시간 로드
+      const todaySummaryRes = await api.getTodaySummary();
+      if (todaySummaryRes.data) {
+        // totalMinutes를 밀리초로 변환
+        setTodayTotalTimeMs(todaySummaryRes.data.totalMinutes * 60 * 1000);
+        console.log(`[오늘 총 시간] ${todaySummaryRes.data.date}: ${todaySummaryRes.data.totalMinutes}분`);
+      } else {
+        setTodayTotalTimeMs(0);
       }
 
       // 현재 진행 중인 프로젝트 로드
@@ -141,13 +156,14 @@ export const HomeScreen: React.FC = () => {
     } catch (error) {
       console.log('API 연결 실패, 샘플 데이터 사용:', error);
       setProjects(sampleProjects);
+      setTodayTotalTimeMs(0);
     } finally {
       setIsLoading(false);
     }
   }, []);
 
   // 타이머 상태 변화 감지 (타이머 정지 시 데이터 새로고침)
-  const prevTimerRunningRef = React.useRef(isTimerRunning);
+  const prevTimerRunningRef = useRef(isTimerRunning);
   useEffect(() => {
     // 타이머가 실행 중 → 정지됨 으로 변할 때만 새로고침
     if (prevTimerRunningRef.current && !isTimerRunning) {
@@ -156,15 +172,157 @@ export const HomeScreen: React.FC = () => {
     prevTimerRunningRef.current = isTimerRunning;
   }, [isTimerRunning, loadData]);
 
+  // 날짜 변경 감지용 refs
+  const midnightTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const pendingRestartRef = useRef<{ projectId: string; taskId: string } | null>(null);
+  // 초기값은 컴포넌트 외부에서 계산 (로컬 타임존 기준)
+  const getInitialDate = () => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  };
+  const lastCheckedDateRef = useRef<string>(getInitialDate());
+  const appStateRef = useRef<AppStateStatus>(AppState.currentState);
+
+  // 날짜 형식: YYYY-MM-DD (로컬 타임존 기준)
+  const getLocalDateString = useCallback((date: Date = new Date()) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }, []);
+
+  const getTodayDateString = useCallback(() => getLocalDateString(new Date()), [getLocalDateString]);
+
+  // 날짜 변경 확인 및 처리
+  const checkAndHandleDateChange = useCallback(async () => {
+    const currentDate = getTodayDateString();
+    const lastDate = lastCheckedDateRef.current;
+
+    console.log(`[날짜 확인] 현재: ${currentDate}, 마지막: ${lastDate}, 같음: ${currentDate === lastDate}`);
+
+    if (currentDate !== lastDate) {
+      console.log(`[날짜 변경] ${lastDate} → ${currentDate}`);
+      lastCheckedDateRef.current = currentDate;
+
+      if (isTimerRunning && currentTask && currentProject) {
+        // 타이머가 실행 중이면 정지 후 재시작 예약
+        console.log('타이머를 정지하고 새 날짜로 재시작합니다.');
+        pendingRestartRef.current = {
+          projectId: currentProject.id,
+          taskId: currentTask.id,
+        };
+        stopTimer();
+      } else {
+        // 타이머가 실행 중이 아니면 데이터만 새로고침
+        await loadData();
+      }
+      return true; // 날짜가 변경됨
+    }
+    return false; // 날짜가 같음
+  }, [isTimerRunning, currentTask, currentProject, stopTimer, loadData, getTodayDateString]);
+
+  // 화면 포커스 시 날짜 확인 후 데이터 로드
   useFocusEffect(
     useCallback(() => {
-      loadData();
-    }, [loadData])
+      const init = async () => {
+        const dateChanged = await checkAndHandleDateChange();
+        if (!dateChanged) {
+          // 날짜가 같으면 일반 데이터 로드
+          loadData();
+        }
+        // 날짜가 바뀌었으면 checkAndHandleDateChange에서 처리함
+      };
+      init();
+    }, [loadData, checkAndHandleDateChange])
   );
+
+  // 앱 포그라운드 전환 시 날짜 확인
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (nextAppState: AppStateStatus) => {
+      if (
+        appStateRef.current.match(/inactive|background/) &&
+        nextAppState === 'active'
+      ) {
+        console.log('앱이 포그라운드로 전환됨, 날짜 확인');
+        checkAndHandleDateChange();
+      }
+      appStateRef.current = nextAppState;
+    });
+
+    return () => subscription.remove();
+  }, [checkAndHandleDateChange]);
+
+  // 자정 타이머: 자정에 날짜 변경 처리
+  useEffect(() => {
+    const checkMidnight = () => {
+      const now = new Date();
+      // 다음 자정까지 남은 시간 계산
+      const tomorrow = new Date(now);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      tomorrow.setHours(0, 0, 0, 0);
+      const msUntilMidnight = tomorrow.getTime() - now.getTime();
+
+      // 자정에 날짜 변경 처리 예약
+      midnightTimerRef.current = setTimeout(async () => {
+        console.log('자정 타이머 실행');
+        // lastCheckedDateRef를 어제 날짜로 설정하여 날짜 변경 감지 유도
+        const yesterday = new Date(Date.now() - 1000);
+        lastCheckedDateRef.current = `${yesterday.getFullYear()}-${String(yesterday.getMonth() + 1).padStart(2, '0')}-${String(yesterday.getDate()).padStart(2, '0')}`;
+        await checkAndHandleDateChange();
+
+        // 다음 자정을 위해 재귀 호출
+        checkMidnight();
+      }, msUntilMidnight);
+    };
+
+    checkMidnight();
+    return () => {
+      if (midnightTimerRef.current) {
+        clearTimeout(midnightTimerRef.current);
+      }
+    };
+  }, [checkAndHandleDateChange]);
+
+  // 자정에 타이머 정지 후 재시작 처리
+  useEffect(() => {
+    // 타이머가 정지되었고, 재시작 대기 중인 경우
+    if (!isTimerRunning && pendingRestartRef.current) {
+      const { projectId, taskId } = pendingRestartRef.current;
+      pendingRestartRef.current = null;
+
+      // 데이터 새로고침 후 타이머 재시작
+      const restartTimer = async () => {
+        await loadData();
+
+        // 새로고침 후 프로젝트와 태스크 찾기
+        const projectsRes = await api.getCurrentProjects();
+        if (projectsRes.data?.data) {
+          const project = projectsRes.data.data.find(p => p.id === projectId);
+          if (project) {
+            const detailRes = await api.getProject(projectId);
+            if (detailRes.data) {
+              const fullProject = transformProjectDetail(detailRes.data);
+              const task = fullProject.tasks.find(t => t.id === taskId);
+              if (task && !task.isDone) {
+                console.log('새 날짜로 타이머를 재시작합니다.');
+                startTimer(taskId, fullProject, task);
+              }
+            }
+          }
+        }
+      };
+
+      restartTimer();
+    }
+  }, [isTimerRunning, loadData, startTimer]);
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await loadData();
+    // 새로고침 시에도 날짜 확인
+    const dateChanged = await checkAndHandleDateChange();
+    if (!dateChanged) {
+      await loadData();
+    }
     setRefreshing(false);
   };
 
@@ -251,8 +409,8 @@ export const HomeScreen: React.FC = () => {
   const handleShowReceipt = async () => {
     setIsLoadingReceipt(true);
     try {
-      const today = new Date().toISOString().split('T')[0];
-      const res = await api.getReceiptDetails(today);
+      const todayStr = getTodayDateString(); // 로컬 타임존 기준
+      const res = await api.getReceiptDetails(todayStr);
       if (res.data) {
         setReceiptData({
           date: res.data.date,
@@ -265,17 +423,16 @@ export const HomeScreen: React.FC = () => {
     } catch (error) {
       console.error('영수증 데이터 로드 실패:', error);
       // 로컬 데이터로 영수증 생성
-      const today = new Date();
-      const dateStr = today.toISOString().split('T')[0];
+      const todayStr = getTodayDateString(); // 로컬 타임존 기준
       const localTasks = todayTasks.map(task => ({
         taskName: task.content,
         projectName: task.projectTitle || '',
         durationMs: task.durationMs || 0,
       }));
       setReceiptData({
-        date: dateStr,
+        date: todayStr,
         tasks: localTasks,
-        totalTimeMs: totalTimeMs + (isTimerRunning ? elapsedTime : 0),
+        totalTimeMs: todayTotalTimeMs + (isTimerRunning ? elapsedTime : 0),
         timeSlots: new Array(144).fill(false),
       });
       setShowReceiptModal(true);
@@ -287,8 +444,8 @@ export const HomeScreen: React.FC = () => {
   // 영수증 이미지 저장 (생성 요청)
   const handleSaveReceiptImage = async () => {
     try {
-      const today = new Date().toISOString().split('T')[0];
-      await api.generateReceiptImage(today);
+      const todayStr = getTodayDateString(); // 로컬 타임존 기준
+      await api.generateReceiptImage(todayStr);
       Alert.alert('완료', '영수증이 저장되었습니다!');
       setShowReceiptModal(false);
     } catch (error) {
@@ -324,9 +481,9 @@ export const HomeScreen: React.FC = () => {
           </TouchableOpacity>
         </View>
 
-        {/* Total Time Display - 원형 타이머 */}
+        {/* Total Time Display - 오늘의 총 시간 (자정에 리셋) */}
         <TotalTimeDisplay
-          timeMs={totalTimeMs + (isTimerRunning ? elapsedTime : 0)}
+          timeMs={todayTotalTimeMs + (isTimerRunning ? elapsedTime : 0)}
           isRunning={isTimerRunning}
           currentTask={currentTask}
           onTimerClick={() => isTimerRunning && setShowFocusMode(true)}

@@ -44,10 +44,20 @@ export class ReceiptImageService {
     let browser: puppeteer.Browser | null = null;
 
     try {
+      this.logger.log(`영수증 이미지 생성 시작: receiptId=${receiptId}`);
+      this.logger.log(`업로드 디렉토리: ${this.uploadDir}`);
+      this.logger.log(`파일 경로: ${filepath}`);
+
+      // Chromium 실행 경로 확인
+      const chromiumPath = '/usr/bin/chromium-browser';
+      this.logger.log(`Chromium 경로: ${chromiumPath}`);
+
       browser = await puppeteer.launch({
         headless: true,
-        args: ['--no-sandbox', '--disable-setuid-sandbox'],
+        executablePath: chromiumPath,
+        args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-gpu', '--disable-dev-shm-usage'],
       });
+      this.logger.log('Puppeteer 브라우저 실행 성공');
 
       const page = await browser.newPage();
       await page.setViewport({ width: 400, height: 900, deviceScaleFactor: 2 });
