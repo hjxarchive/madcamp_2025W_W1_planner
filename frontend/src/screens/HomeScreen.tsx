@@ -6,13 +6,15 @@ import {
   StyleSheet,
   TouchableOpacity,
   RefreshControl,
+  Modal,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import MaterialDesignIcons from '@react-native-vector-icons/material-design-icons';
 const Icon = MaterialDesignIcons;
-import { TotalTimeDisplay, TaskItem, ProjectCard, FloatingTimer, ProfileModal, FocusModeModal, CreateProjectModal } from '@components/index';
+import { TotalTimeDisplay, TaskItem, ProjectCard, FloatingTimer, ProfileModal, FocusModeModal, CreateProjectModal, ArchiveReceipt } from '@components/index';
 import { api } from '@services/api';
 import { COLORS, FONT_SIZES, FONTS, FONT_WEIGHTS, SPACING, BORDER_RADIUS, formatTime, formatTimeShort } from '@constants/index';
 import type { RootStackParamList } from '@navigation/RootNavigator';
@@ -64,6 +66,14 @@ const calculateProgress = (tasks: Task[]): number => {
 
 type HomeNavigationProp = NativeStackNavigationProp<RootStackParamList, 'MainTabs'>;
 
+// 영수증 데이터 타입
+interface ReceiptData {
+  date: string;
+  tasks: { taskName: string; projectName: string; durationMs: number }[];
+  totalTimeMs: number;
+  timeSlots: boolean[];
+}
+
 export const HomeScreen: React.FC = () => {
   const navigation = useNavigation<HomeNavigationProp>();
   const [refreshing, setRefreshing] = useState(false);
@@ -86,6 +96,11 @@ export const HomeScreen: React.FC = () => {
 
   // Create project modal state
   const [showCreateProject, setShowCreateProject] = useState(false);
+
+  // Receipt modal state
+  const [showReceiptModal, setShowReceiptModal] = useState(false);
+  const [receiptData, setReceiptData] = useState<ReceiptData | null>(null);
+  const [isLoadingReceipt, setIsLoadingReceipt] = useState(false);
 
   // 전체 시간 계산
   const totalTimeMs = projects.reduce((sum, p) => sum + p.totalTimeMs, 0);
@@ -262,6 +277,56 @@ export const HomeScreen: React.FC = () => {
     }
   };
 
+  // 영수증 보기
+  const handleShowReceipt = async () => {
+    setIsLoadingReceipt(true);
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      const res = await api.getReceiptDetails(today);
+      if (res.data) {
+        setReceiptData({
+          date: res.data.date,
+          tasks: res.data.tasks,
+          totalTimeMs: res.data.totalTimeMs,
+          timeSlots: res.data.timeSlots,
+        });
+        setShowReceiptModal(true);
+      }
+    } catch (error) {
+      console.error('영수증 데이터 로드 실패:', error);
+      // 로컬 데이터로 영수증 생성
+      const today = new Date();
+      const dateStr = today.toISOString().split('T')[0];
+      const localTasks = todayTasks.map(task => ({
+        taskName: task.content,
+        projectName: task.projectTitle || '',
+        durationMs: task.durationMs || 0,
+      }));
+      setReceiptData({
+        date: dateStr,
+        tasks: localTasks,
+        totalTimeMs: totalTimeMs + (isTimerRunning ? elapsedTime : 0),
+        timeSlots: new Array(144).fill(false),
+      });
+      setShowReceiptModal(true);
+    } finally {
+      setIsLoadingReceipt(false);
+    }
+  };
+
+  // 영수증 이미지 저장 (생성 요청)
+  const handleSaveReceiptImage = async () => {
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      await api.generateReceiptImage(today);
+      Alert.alert('완료', '영수증이 저장되었습니다!');
+      setShowReceiptModal(false);
+    } catch (error) {
+      console.error('영수증 저장 실패:', error);
+      Alert.alert('오류', '영수증 저장에 실패했습니다.');
+    }
+  };
+
   // 활성화된(보고서 작성 안 된) 프로젝트만 표시
   const activeProjects = projects.filter(p => !p.report);
 
@@ -355,6 +420,23 @@ export const HomeScreen: React.FC = () => {
             </TouchableOpacity>
           </View>
         </View>
+
+        {/* 영수증 버튼 섹션 */}
+        <View style={styles.receiptSection}>
+          <TouchableOpacity
+            style={[
+              styles.receiptButton,
+              isLoadingReceipt && styles.receiptButtonDisabled,
+            ]}
+            onPress={handleShowReceipt}
+            disabled={isLoadingReceipt}
+          >
+            <Icon name="receipt" size={20} color={COLORS.surface} />
+            <Text style={styles.receiptButtonText}>
+              {isLoadingReceipt ? '로딩 중...' : '오늘의 영수증 보기'}
+            </Text>
+          </TouchableOpacity>
+        </View>
       </ScrollView>
 
 
@@ -394,6 +476,55 @@ export const HomeScreen: React.FC = () => {
         onProjectCreated={handleProjectCreated}
         currentUser={user}
       />
+
+      {/* Receipt Modal */}
+      <Modal
+        visible={showReceiptModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowReceiptModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.receiptModalContainer}>
+            <View style={styles.receiptModalHeader}>
+              <Text style={styles.receiptModalTitle}>오늘의 영수증</Text>
+              <TouchableOpacity
+                style={styles.receiptCloseButton}
+                onPress={() => setShowReceiptModal(false)}
+              >
+                <Icon name="close" size={24} color={COLORS.textSecondary} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.receiptScrollView}>
+              {receiptData && (
+                <ArchiveReceipt
+                  date={receiptData.date}
+                  projectTitle="오늘의 기록"
+                  projectColor={COLORS.primary}
+                  totalTime={formatTime(receiptData.totalTimeMs)}
+                  tasks={receiptData.tasks.map((task, index) => ({
+                    id: `task-${index}`,
+                    title: task.taskName,
+                    duration: Math.floor(task.durationMs / 1000),
+                    projectColor: COLORS.primary,
+                  }))}
+                />
+              )}
+            </ScrollView>
+
+            <View style={styles.receiptModalFooter}>
+              <TouchableOpacity
+                style={styles.saveReceiptButton}
+                onPress={handleSaveReceiptImage}
+              >
+                <Icon name="download" size={20} color={COLORS.surface} />
+                <Text style={styles.saveReceiptButtonText}>영수증 저장</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -487,6 +618,81 @@ const styles = StyleSheet.create({
   newProjectText: {
     fontSize: FONT_SIZES.sm,
     color: COLORS.textMuted,
+  },
+  // Receipt section
+  receiptSection: {
+    paddingHorizontal: SPACING.base,
+    paddingBottom: SPACING.lg,
+  },
+  receiptButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: SPACING.md,
+    backgroundColor: COLORS.gray900,
+    borderRadius: BORDER_RADIUS.lg,
+    gap: SPACING.sm,
+  },
+  receiptButtonDisabled: {
+    opacity: 0.5,
+  },
+  receiptButtonText: {
+    fontSize: FONT_SIZES.base,
+    fontWeight: FONT_WEIGHTS.medium,
+    color: COLORS.surface,
+  },
+  // Receipt Modal
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  receiptModalContainer: {
+    width: '90%',
+    maxHeight: '85%',
+    backgroundColor: COLORS.surface,
+    borderRadius: BORDER_RADIUS.xl,
+    overflow: 'hidden',
+  },
+  receiptModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: SPACING.base,
+    paddingVertical: SPACING.md,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.gray200,
+  },
+  receiptModalTitle: {
+    fontSize: FONT_SIZES.lg,
+    fontWeight: FONT_WEIGHTS.semibold,
+    color: COLORS.textPrimary,
+  },
+  receiptCloseButton: {
+    padding: SPACING.xs,
+  },
+  receiptScrollView: {
+    maxHeight: 500,
+  },
+  receiptModalFooter: {
+    padding: SPACING.base,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.gray200,
+  },
+  saveReceiptButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: SPACING.md,
+    backgroundColor: COLORS.gray900,
+    borderRadius: BORDER_RADIUS.lg,
+    gap: SPACING.sm,
+  },
+  saveReceiptButtonText: {
+    fontSize: FONT_SIZES.base,
+    fontWeight: FONT_WEIGHTS.medium,
+    color: COLORS.surface,
   },
 });
 

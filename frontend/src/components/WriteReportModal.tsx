@@ -7,8 +7,6 @@ import {
   TouchableOpacity,
   ScrollView,
   TextInput,
-  KeyboardAvoidingView,
-  Platform,
   Dimensions,
 } from 'react-native';
 
@@ -16,7 +14,7 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 import MaterialDesignIcons from '@react-native-vector-icons/material-design-icons';
 const Icon = MaterialDesignIcons;
 import { ReportDonutChart } from './ReportDonutChart';
-import { COLORS, FONT_SIZES, FONTS, SPACING, BORDER_RADIUS, formatTime, formatTimeShort } from '@constants/index';
+import { COLORS, FONT_SIZES, FONT_WEIGHTS, FONTS, SPACING, BORDER_RADIUS, formatTime, formatTimeShort } from '@constants/index';
 
 interface Task {
   id: string;
@@ -56,9 +54,6 @@ export const WriteReportModal: React.FC<WriteReportModalProps> = ({
   const [rating, setRating] = useState(5);
   const [memo, setMemo] = useState('');
 
-  // 디버깅: 조건 체크 전에 로그
-  console.log('WriteReportModal render:', { isOpen, hasProject: !!project });
-
   if (!isOpen || !project) return null;
 
   const completedTasks = project.tasks.filter(t => t.isDone);
@@ -66,10 +61,10 @@ export const WriteReportModal: React.FC<WriteReportModalProps> = ({
 
   const handleRatingChange = (text: string) => {
     const value = parseInt(text);
-    if (!isNaN(value) && value >= 1 && value <= 5) {
+    if (!isNaN(value) && value >= 0 && value <= 5) {
       setRating(value);
     } else if (text === '') {
-      setRating(1);
+      setRating(0);
     }
   };
 
@@ -86,23 +81,6 @@ export const WriteReportModal: React.FC<WriteReportModalProps> = ({
     onClose();
   };
 
-  const renderStars = () => {
-    return (
-      <View style={styles.starsContainer}>
-        {[1, 2, 3, 4, 5].map(star => (
-          <TouchableOpacity key={star} onPress={() => setRating(star)}>
-            <Icon
-              name={star <= rating ? 'star' : 'star-outline'}
-              size={24}
-              color={star <= rating ? '#FACC15' : COLORS.gray300}
-            />
-          </TouchableOpacity>
-        ))}
-      </View>
-    );
-  };
-
-  // 간단한 테스트 Modal
   return (
     <Modal
       visible={true}
@@ -110,69 +88,112 @@ export const WriteReportModal: React.FC<WriteReportModalProps> = ({
       transparent={true}
       onRequestClose={onClose}
     >
-      <View style={{
-        flex: 1,
-        backgroundColor: 'rgba(0, 0, 0, 0.5)',
-        justifyContent: 'center',
-        alignItems: 'center',
-      }}>
-        <View style={{
-          backgroundColor: 'white',
-          borderRadius: 16,
-          padding: 24,
-          width: SCREEN_WIDTH - 48,
-          maxHeight: '80%',
-        }}>
-          <Text style={{ fontSize: 18, fontWeight: 'bold', marginBottom: 16 }}>
-            보고서 작성
-          </Text>
-          <Text style={{ fontSize: 16, marginBottom: 8 }}>
-            프로젝트: {project.title}
-          </Text>
-          <Text style={{ fontSize: 14, color: '#666', marginBottom: 16, fontFamily: FONTS.mono }}>
-            총 소요시간: {formatTime(project.totalTimeMs)}
-          </Text>
-          
-          <Text style={{ fontSize: 14, marginBottom: 8 }}>평점: {rating} / 5</Text>
-          <View style={{ flexDirection: 'row', marginBottom: 16 }}>
-            {[1, 2, 3, 4, 5].map(star => (
-              <TouchableOpacity key={star} onPress={() => setRating(star)} style={{ padding: 4 }}>
-                <Icon
-                  name={star <= rating ? 'star' : 'star-outline'}
-                  size={28}
-                  color={star <= rating ? '#FACC15' : '#D1D5DB'}
-                />
+      <View style={styles.overlay}>
+        <View style={styles.modalContainer}>
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.scrollContent}
+          >
+            {/* Header */}
+            <View style={styles.header}>
+              <Text style={styles.headerTitle}>보고서 작성</Text>
+              <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+                <Icon name="close" size={24} color={COLORS.gray400} />
               </TouchableOpacity>
-            ))}
-          </View>
+            </View>
 
-          <View style={{ flexDirection: 'row', gap: 12 }}>
-            <TouchableOpacity 
-              onPress={onClose}
-              style={{
-                flex: 1,
-                paddingVertical: 12,
-                borderRadius: 8,
-                borderWidth: 1,
-                borderColor: '#D1D5DB',
-                alignItems: 'center',
-              }}
-            >
-              <Text style={{ color: '#666' }}>취소</Text>
-            </TouchableOpacity>
-            <TouchableOpacity 
-              onPress={handleSave}
-              style={{
-                flex: 1,
-                paddingVertical: 12,
-                borderRadius: 8,
-                backgroundColor: '#16A34A',
-                alignItems: 'center',
-              }}
-            >
-              <Text style={{ color: 'white', fontWeight: '600' }}>저장</Text>
-            </TouchableOpacity>
-          </View>
+            {/* Project Info - 프로젝트명 + 총 소요시간 */}
+            <View style={styles.projectInfo}>
+              <Text style={styles.projectTitle}>{project.title}</Text>
+              <Text style={styles.totalTimeLabel}>총 소요시간</Text>
+              <Text style={styles.totalTime}>{formatTime(project.totalTimeMs)}</Text>
+            </View>
+
+            {/* Donut Chart - Task별 시간 비율 */}
+            <View style={styles.chartContainer}>
+              <View style={styles.chartWrapper}>
+                <ReportDonutChart
+                  tasks={tasksWithTime}
+                  totalTimeMs={project.totalTimeMs}
+                  size={200}
+                  showLabels={false}
+                />
+                {/* Center text */}
+                <View style={styles.chartCenter}>
+                  <Text style={styles.chartCenterNumber}>{tasksWithTime.length}</Text>
+                  <Text style={styles.chartCenterLabel}>Tasks</Text>
+                </View>
+              </View>
+            </View>
+
+            {/* Task List - 진행한 Task들 */}
+            <View style={styles.taskListSection}>
+              <Text style={styles.sectionLabel}>진행한 Task ({completedTasks.length})</Text>
+              <View style={styles.taskListContainer}>
+                <ScrollView
+                  style={styles.taskScroll}
+                  nestedScrollEnabled={true}
+                  showsVerticalScrollIndicator={false}
+                >
+                  {completedTasks.length > 0 ? (
+                    completedTasks.map(task => (
+                      <View key={task.id} style={styles.taskItem}>
+                        <View style={styles.taskLeft}>
+                          <Icon name="check-circle" size={18} color={COLORS.success} />
+                          <Text style={styles.taskContent} numberOfLines={1}>
+                            {task.content}
+                          </Text>
+                        </View>
+                        {task.durationMs > 0 && (
+                          <Text style={styles.taskDuration}>
+                            {formatTimeShort(task.durationMs)}
+                          </Text>
+                        )}
+                      </View>
+                    ))
+                  ) : (
+                    <Text style={styles.emptyTaskText}>완료된 Task가 없습니다</Text>
+                  )}
+                </ScrollView>
+              </View>
+            </View>
+
+            {/* Rating - 평점 */}
+            <View style={styles.ratingSection}>
+              <Text style={styles.sectionLabel}>평점</Text>
+              <View style={styles.ratingRow}>
+                <TextInput
+                  style={styles.ratingInput}
+                  value={rating.toString()}
+                  onChangeText={handleRatingChange}
+                  keyboardType="number-pad"
+                  maxLength={1}
+                />
+                <Text style={styles.ratingDivider}>/ 5</Text>
+                <View style={styles.starsContainer}>
+                  {[1, 2, 3, 4, 5].map(star => (
+                    <TouchableOpacity key={star} onPress={() => setRating(star)}>
+                      <Icon
+                        name={star <= rating ? 'star' : 'star-outline'}
+                        size={24}
+                        color={star <= rating ? '#FACC15' : COLORS.gray300}
+                      />
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+            </View>
+
+            {/* Buttons */}
+            <View style={styles.buttonRow}>
+              <TouchableOpacity style={styles.cancelButton} onPress={onClose}>
+                <Text style={styles.cancelButtonText}>나중에</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
+                <Text style={styles.saveButtonText}>저장하기</Text>
+              </TouchableOpacity>
+            </View>
+          </ScrollView>
         </View>
       </View>
     </Modal>
@@ -185,21 +206,13 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  modalContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
     padding: SPACING.base,
   },
-  modal: {
+  modalContainer: {
     backgroundColor: COLORS.surface,
     borderRadius: BORDER_RADIUS.xl,
-    width: Math.min(SCREEN_WIDTH - 32, 500),
+    width: Math.min(SCREEN_WIDTH - 32, 400),
     maxHeight: '90%',
-  },
-  scrollView: {
-    flex: 1,
   },
   scrollContent: {
     padding: SPACING.xl,
@@ -213,7 +226,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: FONT_SIZES.lg,
-    fontWeight: '600',
+    fontWeight: FONT_WEIGHTS.semibold,
     color: COLORS.gray900,
   },
   closeButton: {
@@ -226,7 +239,7 @@ const styles = StyleSheet.create({
   },
   projectTitle: {
     fontSize: FONT_SIZES.xl,
-    fontWeight: '700',
+    fontWeight: FONT_WEIGHTS.bold,
     color: COLORS.gray900,
     marginBottom: SPACING.sm,
   },
@@ -236,8 +249,8 @@ const styles = StyleSheet.create({
   },
   totalTime: {
     fontSize: FONT_SIZES['2xl'],
-    fontWeight: '700',
-    fontFamily: 'System',
+    fontWeight: FONT_WEIGHTS.bold,
+    fontFamily: FONTS.mono,
     color: COLORS.gray900,
     marginTop: 4,
   },
@@ -246,20 +259,43 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: SPACING.xl,
   },
+  chartWrapper: {
+    position: 'relative',
+    width: 200,
+    height: 200,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  chartCenter: {
+    position: 'absolute',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  chartCenterNumber: {
+    fontSize: FONT_SIZES['2xl'],
+    fontWeight: FONT_WEIGHTS.bold,
+    color: COLORS.gray900,
+  },
+  chartCenterLabel: {
+    fontSize: FONT_SIZES.xs,
+    color: COLORS.textMuted,
+  },
   // Task List
   taskListSection: {
     marginBottom: SPACING.xl,
   },
   sectionLabel: {
     fontSize: FONT_SIZES.sm,
-    fontWeight: '500',
+    fontWeight: FONT_WEIGHTS.medium,
     color: COLORS.textSecondary,
     marginBottom: SPACING.md,
   },
   taskListContainer: {
-    backgroundColor: COLORS.surfaceLight,
+    backgroundColor: COLORS.gray50,
     borderRadius: BORDER_RADIUS.xl,
     padding: SPACING.md,
+  },
+  taskScroll: {
     maxHeight: 160,
   },
   taskItem: {
@@ -273,7 +309,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
-    gap: SPACING.sm,
+    gap: SPACING.md,
   },
   taskContent: {
     fontSize: FONT_SIZES.sm,
@@ -282,7 +318,7 @@ const styles = StyleSheet.create({
   },
   taskDuration: {
     fontSize: FONT_SIZES.xs,
-    fontFamily: 'System',
+    fontFamily: FONTS.mono,
     color: COLORS.textSecondary,
     marginLeft: SPACING.sm,
   },
@@ -309,8 +345,8 @@ const styles = StyleSheet.create({
     borderColor: COLORS.gray200,
     borderRadius: BORDER_RADIUS.xl,
     textAlign: 'center',
-    fontFamily: 'System',
-    fontWeight: '700',
+    fontFamily: FONTS.mono,
+    fontWeight: FONT_WEIGHTS.bold,
     fontSize: FONT_SIZES.lg,
     color: COLORS.gray900,
   },
@@ -337,8 +373,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   cancelButtonText: {
-    fontSize: FONT_SIZES.md,
-    fontWeight: '500',
+    fontSize: FONT_SIZES.base,
+    fontWeight: FONT_WEIGHTS.medium,
     color: COLORS.textSecondary,
   },
   saveButton: {
@@ -349,8 +385,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   saveButtonText: {
-    fontSize: FONT_SIZES.md,
-    fontWeight: '500',
+    fontSize: FONT_SIZES.base,
+    fontWeight: FONT_WEIGHTS.medium,
     color: '#fff',
   },
 });

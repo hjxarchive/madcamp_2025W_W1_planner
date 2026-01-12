@@ -26,12 +26,18 @@ export const ReportDonutChart: React.FC<ReportDonutChartProps> = ({
   onSegmentClick,
 }) => {
   const grayColors = ['#374151', '#6B7280', '#9CA3AF', '#D1D5DB', '#E5E7EB', '#F3F4F6'];
-  
+
+  // 디버깅: 입력 데이터 확인
+  console.log('ReportDonutChart - input tasks:', tasks.length, tasks.map(t => ({ id: t.id, content: t.content, durationMs: t.durationMs })));
+  console.log('ReportDonutChart - input totalTimeMs:', totalTimeMs);
+
   // Task를 올림차순으로 정렬 (content 기준)
   const tasksWithTime = tasks
     .filter(t => t.durationMs > 0)
     .sort((a, b) => a.content.localeCompare(b.content));
-  
+
+  console.log('ReportDonutChart - tasksWithTime after filter:', tasksWithTime.length);
+
   // 텍스트가 잘리지 않도록 패딩 추가
   const padding = showLabels ? 80 : 20;
   const chartSize = size - padding * 2;
@@ -39,8 +45,11 @@ export const ReportDonutChart: React.FC<ReportDonutChartProps> = ({
   const outerRadius = chartSize / 2 - 5;
   const centerX = size / 2;
   const centerY = size / 2;
-  
+
+  console.log('ReportDonutChart - chart dimensions:', { padding, chartSize, innerRadius, outerRadius, centerX, centerY });
+
   if (totalTimeMs === 0 || tasksWithTime.length === 0) {
+    console.log('ReportDonutChart - showing empty state because:', totalTimeMs === 0 ? 'totalTimeMs is 0' : 'no tasks with time');
     return (
       <View style={[styles.emptyContainer, { height: size }]}>
         <Text style={styles.emptyText}>시간 기록 없음</Text>
@@ -111,6 +120,11 @@ export const ReportDonutChart: React.FC<ReportDonutChartProps> = ({
     return segment;
   });
   
+  console.log('ReportDonutChart - rendering segments:', segments.length);
+  segments.forEach((seg, i) => {
+    console.log(`Segment ${i}: ${seg.task.content}, percentage: ${seg.percentage}%, path length: ${seg.path.length}`);
+  });
+
   return (
     <View style={[styles.container, { width: size, height: size }]}>
       <Svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
@@ -133,8 +147,8 @@ export const ReportDonutChart: React.FC<ReportDonutChartProps> = ({
                 fill="#374151"
                 fontWeight="500"
               >
-                {segment.task.content.length > 8 
-                  ? segment.task.content.substring(0, 8) + '...' 
+                {segment.task.content.length > 8
+                  ? segment.task.content.substring(0, 8) + '...'
                   : segment.task.content}
               </SvgText>
             )}

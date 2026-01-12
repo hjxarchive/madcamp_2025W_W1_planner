@@ -545,8 +545,25 @@ export const ProjectDetailScreen: React.FC<ProjectDetailScreenProps> = ({ route 
         assigneeId: taskData.assigneeId,
       });
       if (res.data) {
-        // 프로젝트 다시 로드
-        loadProject(project.id);
+        // 프로젝트 다시 로드 대신 새 Task만 로컬에 추가 (기존 시간 기록 유지)
+        const newTask: Task = {
+          id: res.data.id,
+          content: res.data.content,
+          isDone: res.data.isCompleted,
+          durationMs: res.data.totalTimeMinutes * 60 * 1000,
+          projectId: project.id,
+          projectTitle: project.title,
+          assigneeId: res.data.assigneeId,
+          assigneeName: res.data.assigneeNickname,
+          displayOrder: res.data.displayOrder,
+        };
+        setProject(prev => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            tasks: [...prev.tasks, newTask],
+          };
+        });
       } else if (res.error) {
         Alert.alert('오류', res.error);
       }
@@ -554,7 +571,7 @@ export const ProjectDetailScreen: React.FC<ProjectDetailScreenProps> = ({ route 
       console.error('Task 추가 실패:', error);
       Alert.alert('오류', 'Task 추가에 실패했습니다.');
     }
-  }, [project, loadProject]);
+  }, [project]);
 
   const handleDeleteTask = useCallback(async (taskId: string) => {
     if (!project) return;

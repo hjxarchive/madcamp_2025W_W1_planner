@@ -114,17 +114,22 @@ export const transformChecklist = (
   checklist: ChecklistItem,
   projectId: string,
   projectTitle?: string
-): Task => ({
-  id: checklist.id,
-  content: checklist.content,
-  isDone: checklist.isCompleted,
-  durationMs: checklist.totalTimeMinutes * 60 * 1000, // minutes → ms
-  projectId,
-  projectTitle,
-  assigneeId: checklist.assigneeId,
-  assigneeName: checklist.assigneeNickname,
-  displayOrder: checklist.displayOrder,
-});
+): Task => {
+  console.log('transformChecklist - input:', { id: checklist.id, content: checklist.content, totalTimeMinutes: checklist.totalTimeMinutes });
+  const durationMs = checklist.totalTimeMinutes * 60 * 1000;
+  console.log('transformChecklist - durationMs:', durationMs);
+  return {
+    id: checklist.id,
+    content: checklist.content,
+    isDone: checklist.isCompleted,
+    durationMs, // minutes → ms
+    projectId,
+    projectTitle,
+    assigneeId: checklist.assigneeId,
+    assigneeName: checklist.assigneeNickname,
+    displayOrder: checklist.displayOrder,
+  };
+};
 
 /** API ProjectMember → UI Member 변환 */
 export const transformMember = (member: ProjectMember, totalTimeMinutes: number = 0): Member => ({
