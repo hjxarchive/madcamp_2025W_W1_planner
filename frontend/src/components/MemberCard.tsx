@@ -142,7 +142,7 @@ export const MemberCard: React.FC<MemberCardProps> = ({
     >
       {/* Avatar */}
       <View style={[styles.avatar, isActive && styles.avatarActive]}>
-        <Icon name="account" size={20} color={isActive ? '#fff' : COLORS.primary} />
+        <Text style={styles.avatarEmoji}>{member.profileEmoji || '👤'}</Text>
       </View>
       
       {/* Name */}
@@ -189,28 +189,36 @@ const styles = StyleSheet.create({
     padding: SPACING.md,
     alignItems: 'center',
     minWidth: 80,
+    marginHorizontal: 2,
+    marginVertical: 2,
   },
   containerActive: {
-    backgroundColor: '#FFF7ED', // orange-50
+    backgroundColor: '#F9FAFB', // gray-50
     borderWidth: 2,
-    borderColor: '#FDBA74', // orange-300
-    shadowColor: '#F97316',
+    borderColor: '#D1D5DB', // gray-300
+    shadowColor: '#6B7280', // gray-500
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
     shadowRadius: 8,
     elevation: 4,
+    zIndex: 10,
+    marginHorizontal: 4,
+    marginVertical: 4,
   },
   avatar: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#DBEAFE', // blue-100
+    backgroundColor: 'transparent',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: SPACING.sm,
   },
   avatarActive: {
-    backgroundColor: '#F97316', // orange-500
+    backgroundColor: 'transparent',
+  },
+  avatarEmoji: {
+    fontSize: 32,
   },
   name: {
     fontSize: FONT_SIZES.sm,
@@ -242,7 +250,7 @@ const styles = StyleSheet.create({
     borderRadius: 3,
   },
   progressBarActive: {
-    backgroundColor: '#F97316', // orange-500
+    backgroundColor: '#6B7280', // gray-500
   },
   activeIndicator: {
     flexDirection: 'row',
@@ -259,17 +267,17 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: '#F97316', // orange-500
+    backgroundColor: '#6B7280', // gray-500
   },
   activeDotYellow: {
-    backgroundColor: '#FACC15', // yellow-400
+    backgroundColor: '#9CA3AF', // gray-400
   },
   activeDotOrangeLight: {
-    backgroundColor: '#FB923C', // orange-400
+    backgroundColor: '#D1D5DB', // gray-300
   },
   activeText: {
     fontSize: FONT_SIZES.xs,
-    color: '#EA580C', // orange-600
+    color: '#4B5563', // gray-600
     fontWeight: '500',
   },
 });

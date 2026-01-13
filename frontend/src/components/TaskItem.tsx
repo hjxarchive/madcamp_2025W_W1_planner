@@ -4,6 +4,7 @@ import MaterialDesignIcons from '@react-native-vector-icons/material-design-icon
 const Icon = MaterialDesignIcons;
 import { COLORS, FONT_SIZES, FONTS, FONT_WEIGHTS, SPACING, BORDER_RADIUS, formatTimeShort } from '@constants/index';
 import type { Task } from '../types';
+import { useAuth } from '../contexts/AuthContext';
 
 interface TaskItemProps {
   task: Task;
@@ -34,7 +35,11 @@ export const TaskItem: React.FC<TaskItemProps> = ({
   showAssignee = false,
   isTeamProject = false,
 }) => {
+  const { user } = useAuth();
   const isActive = isTimerRunning && currentTaskId === task.id && currentProjectId === projectId;
+  
+  // 팀 프로젝트에서 자신에게 할당되지 않은 작업인지 확인
+  const isUnassignedTask = isTeamProject && task.assigneeId && task.assigneeId !== user?.id;
   
   // 실시간 시간 계산
   const displayTime = isActive ? (task.durationMs || 0) + elapsedTime : task.durationMs || 0;
@@ -103,15 +108,15 @@ export const TaskItem: React.FC<TaskItemProps> = ({
           style={[
             styles.timerButton,
             isActive && styles.timerButtonActive,
-            isTimerRunning && !isActive && styles.timerButtonDisabled,
+            (isTimerRunning && !isActive || isUnassignedTask) && styles.timerButtonDisabled,
           ]}
           onPress={isActive ? onStopTimer : onStartTimer}
-          disabled={isTimerRunning && !isActive}
+          disabled={isTimerRunning && !isActive || isUnassignedTask}
         >
           <Icon
             name={isActive ? "stop" : "play"}
             size={18}
-            color={isActive ? COLORS.error : (isTimerRunning && !isActive) ? COLORS.gray300 : COLORS.textMuted}
+            color={isActive ? COLORS.error : (isTimerRunning && !isActive || isUnassignedTask) ? COLORS.gray300 : COLORS.textMuted}
           />
         </TouchableOpacity>
       )}

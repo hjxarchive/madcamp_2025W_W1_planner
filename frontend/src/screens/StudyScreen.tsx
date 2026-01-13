@@ -373,7 +373,7 @@ export const StudyScreen: React.FC = () => {
   const [generatingIndex, setGeneratingIndex] = useState<number | null>(null);
   const flatListRef = useRef<FlatList>(null);
 
-  // 탭 포커스 시 오늘 날짜로 스크롤 (현재 주에서 오늘에 해당하는 인덱스)
+  // 탭 포커스 시 오늘 날짜로 스크롤 (현재 주에서 오늘에 해당하는 인덱스) 및 데이터 리로드
   useFocusEffect(
     useCallback(() => {
       const today = new Date();
@@ -382,7 +382,8 @@ export const StudyScreen: React.FC = () => {
       const todayIndex = day === 0 ? 6 : day - 1;
       setCurrentIndex(todayIndex);
       flatListRef.current?.scrollToIndex({ index: todayIndex, animated: false });
-    }, [])
+      loadWeeklyData(currentWeekReference);
+    }, [currentWeekReference, loadWeeklyData])
   );
 
   /**

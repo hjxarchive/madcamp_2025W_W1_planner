@@ -59,15 +59,6 @@ export const WriteReportModal: React.FC<WriteReportModalProps> = ({
   const completedTasks = project.tasks.filter(t => t.isDone);
   const tasksWithTime = completedTasks.filter(t => t.durationMs > 0);
 
-  const handleRatingChange = (text: string) => {
-    const value = parseInt(text);
-    if (!isNaN(value) && value >= 0 && value <= 5) {
-      setRating(value);
-    } else if (text === '') {
-      setRating(0);
-    }
-  };
-
   const handleSave = () => {
     onSave({
       rating,
@@ -113,14 +104,14 @@ export const WriteReportModal: React.FC<WriteReportModalProps> = ({
             <View style={styles.chartContainer}>
               <View style={styles.chartWrapper}>
                 <ReportDonutChart
-                  tasks={tasksWithTime}
+                  tasks={completedTasks}
                   totalTimeMs={project.totalTimeMs}
                   size={200}
                   showLabels={false}
                 />
                 {/* Center text */}
                 <View style={styles.chartCenter}>
-                  <Text style={styles.chartCenterNumber}>{tasksWithTime.length}</Text>
+                  <Text style={styles.chartCenterNumber}>{completedTasks.length}</Text>
                   <Text style={styles.chartCenterLabel}>Tasks</Text>
                 </View>
               </View>
@@ -161,26 +152,16 @@ export const WriteReportModal: React.FC<WriteReportModalProps> = ({
             {/* Rating - 평점 */}
             <View style={styles.ratingSection}>
               <Text style={styles.sectionLabel}>평점</Text>
-              <View style={styles.ratingRow}>
-                <TextInput
-                  style={styles.ratingInput}
-                  value={rating.toString()}
-                  onChangeText={handleRatingChange}
-                  keyboardType="number-pad"
-                  maxLength={1}
-                />
-                <Text style={styles.ratingDivider}>/ 5</Text>
-                <View style={styles.starsContainer}>
-                  {[1, 2, 3, 4, 5].map(star => (
-                    <TouchableOpacity key={star} onPress={() => setRating(star)}>
-                      <Icon
-                        name={star <= rating ? 'star' : 'star-outline'}
-                        size={24}
-                        color={star <= rating ? '#FACC15' : COLORS.gray300}
-                      />
-                    </TouchableOpacity>
-                  ))}
-                </View>
+              <View style={styles.starsContainer}>
+                {[1, 2, 3, 4, 5].map(star => (
+                  <TouchableOpacity key={star} onPress={() => setRating(star)} style={styles.starButton}>
+                    <Icon
+                      name={star <= rating ? 'star' : 'star-outline'}
+                      size={40}
+                      color={star <= rating ? '#FACC15' : COLORS.gray300}
+                    />
+                  </TouchableOpacity>
+                ))}
               </View>
             </View>
 
@@ -331,34 +312,17 @@ const styles = StyleSheet.create({
   // Rating
   ratingSection: {
     marginBottom: SPACING.xl,
-  },
-  ratingRow: {
-    flexDirection: 'row',
     alignItems: 'center',
-    gap: SPACING.md,
-  },
-  ratingInput: {
-    width: 60,
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.sm,
-    borderWidth: 1,
-    borderColor: COLORS.gray200,
-    borderRadius: BORDER_RADIUS.xl,
-    textAlign: 'center',
-    fontFamily: FONTS.mono,
-    fontWeight: FONT_WEIGHTS.bold,
-    fontSize: FONT_SIZES.lg,
-    color: COLORS.gray900,
-  },
-  ratingDivider: {
-    fontSize: FONT_SIZES.lg,
-    color: COLORS.textSecondary,
   },
   starsContainer: {
     flexDirection: 'row',
-    gap: 4,
-    flex: 1,
+    gap: SPACING.sm,
+    marginTop: SPACING.md,
   },
+  starButton: {
+    padding: SPACING.xs,
+  },
+
   // Buttons
   buttonRow: {
     flexDirection: 'row',

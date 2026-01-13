@@ -26,6 +26,7 @@ const CircularProgress: React.FC<{ progress: number; size?: number }> = ({ progr
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
   const strokeDashoffset = circumference - (progress / 100) * circumference;
+  const progressColor = progress === 100 ? COLORS.success : COLORS.gray800;
 
   return (
     <View style={{ width: size, height: size }}>
@@ -51,11 +52,11 @@ const CircularProgress: React.FC<{ progress: number; size?: number }> = ({ progr
             height: size,
             borderRadius: size / 2,
             borderWidth: strokeWidth,
-            borderColor: COLORS.gray800,
+            borderColor: progressColor,
             borderTopColor: 'transparent',
-            borderRightColor: progress > 25 ? COLORS.gray800 : 'transparent',
-            borderBottomColor: progress > 50 ? COLORS.gray800 : 'transparent',
-            borderLeftColor: progress > 75 ? COLORS.gray800 : 'transparent',
+            borderRightColor: progress > 25 ? progressColor : 'transparent',
+            borderBottomColor: progress > 50 ? progressColor : 'transparent',
+            borderLeftColor: progress > 75 ? progressColor : 'transparent',
             transform: [{ rotate: '-45deg' }],
           },
         ]}
@@ -138,7 +139,7 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({
 
       {/* 하단 프로그레스 바 */}
       <View style={styles.progressBar}>
-        <View style={[styles.progressFill, { width: `${progress}%` }]} />
+        <View style={[styles.progressFill, { width: `${progress}%` }, progress === 100 && styles.progressFillCompleted]} />
       </View>
 
       {/* 활성 표시 */}
@@ -245,6 +246,9 @@ const styles = StyleSheet.create({
   progressFill: {
     height: '100%',
     backgroundColor: COLORS.gray800,
+  },
+  progressFillCompleted: {
+    backgroundColor: COLORS.success,
   },
   // Active indicator
   activeIndicator: {

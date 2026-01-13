@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import Svg, { Path, G, Text as SvgText } from 'react-native-svg';
+import Svg, { Path, G, Circle, Text as SvgText } from 'react-native-svg';
 import { COLORS, FONT_SIZES, formatTimeShort } from '@constants/index';
 
 interface Task {
@@ -25,7 +25,7 @@ export const ReportDonutChart: React.FC<ReportDonutChartProps> = ({
   showLabels = true,
   onSegmentClick,
 }) => {
-  const grayColors = ['#374151', '#6B7280', '#9CA3AF', '#D1D5DB', '#E5E7EB', '#F3F4F6'];
+  const grayColors = ['#6B7280', '#9CA3AF', '#D1D5DB', '#E5E7EB', '#F3F4F6', '#F9FAFB'];
 
   // 디버깅: 입력 데이터 확인
   console.log('ReportDonutChart - input tasks:', tasks.length, tasks.map(t => ({ id: t.id, content: t.content, durationMs: t.durationMs })));
@@ -48,8 +48,18 @@ export const ReportDonutChart: React.FC<ReportDonutChartProps> = ({
 
   console.log('ReportDonutChart - chart dimensions:', { padding, chartSize, innerRadius, outerRadius, centerX, centerY });
 
-  if (totalTimeMs === 0 || tasksWithTime.length === 0) {
-    console.log('ReportDonutChart - showing empty state because:', totalTimeMs === 0 ? 'totalTimeMs is 0' : 'no tasks with time');
+  if (totalTimeMs === 0) {
+    console.log('ReportDonutChart - showing empty state because totalTimeMs is 0');
+    return (
+      <View style={[styles.emptyContainer, { height: size }]}>
+        <Text style={styles.emptyText}>시간 기록 없음</Text>
+      </View>
+    );
+  }
+
+  // 테스크가 하나도 없으면 빈 상태
+  if (tasksWithTime.length === 0) {
+    console.log('ReportDonutChart - showing empty state because no tasks with time');
     return (
       <View style={[styles.emptyContainer, { height: size }]}>
         <Text style={styles.emptyText}>시간 기록 없음</Text>
@@ -60,7 +70,8 @@ export const ReportDonutChart: React.FC<ReportDonutChartProps> = ({
   // 각 segment의 path를 생성
   let currentAngle = -90; // 시작 각도 (위쪽부터)
   const segments = tasksWithTime.map((task, index) => {
-    const percentage = (task.durationMs / totalTimeMs) * 100;
+    // 테스크가 하나일 때는 전체 360도를 차지하도록 설정
+    const percentage = tasksWithTime.length === 1 ? 100 : (task.durationMs / totalTimeMs) * 100;
     const angle = (percentage / 100) * 360;
     
     // 시작 및 종료 각도 (도 단위)
@@ -124,6 +135,49 @@ export const ReportDonutChart: React.FC<ReportDonutChartProps> = ({
   segments.forEach((seg, i) => {
     console.log(`Segment ${i}: ${seg.task.content}, percentage: ${seg.percentage}%, path length: ${seg.path.length}`);
   });
+
+  // 테스크가 1개일 때는 Circle로 전체 도넛 그리기
+  if (tasksWithTime.length === 1) {
+    return (
+      <View style={[styles.container, { width: size, height: size }]}>
+        <Svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+          <G>
+            {/* 외부 원 */}
+            <Circle
+              cx={centerX}
+              cy={centerY}
+              r={outerRadius}
+              fill={grayColors[0]}
+              stroke="white"
+              strokeWidth={2}
+            />
+            {/* 내부 원 (구멍) */}
+            <Circle
+              cx={centerX}
+              cy={centerY}
+              r={innerRadius}
+              fill="white"
+            />
+            {showLabels && (
+              <SvgText
+                x={centerX}
+                y={centerY - outerRadius - 15}
+                textAnchor="middle"
+                alignmentBaseline="middle"
+                fontSize={11}
+                fill="#374151"
+                fontWeight="500"
+              >
+                {tasksWithTime[0].content.length > 8
+                  ? tasksWithTime[0].content.substring(0, 8) + '...'
+                  : tasksWithTime[0].content}
+              </SvgText>
+            )}
+          </G>
+        </Svg>
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.container, { width: size, height: size }]}>
