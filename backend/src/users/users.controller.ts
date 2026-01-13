@@ -10,7 +10,7 @@ import {
 } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { CreateUserDto, UpdateUserDto } from './dto';
-import { FirebaseAuthGuard, CurrentUser } from '../common';
+import { JwtAuthGuard, CurrentUser } from '../common';
 import type { FirebaseUser } from '../common';
 
 @Controller('users')
@@ -18,7 +18,7 @@ export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
   @Get('me')
-  @UseGuards(FirebaseAuthGuard)
+  @UseGuards(JwtAuthGuard)
   async getMe(@CurrentUser() user: FirebaseUser) {
     const dbUser = await this.usersService.findByFirebaseUid(user.firebaseUid);
 
@@ -30,7 +30,7 @@ export class UsersController {
   }
 
   @Post()
-  @UseGuards(FirebaseAuthGuard)
+  @UseGuards(JwtAuthGuard)
   async create(
     @CurrentUser() user: FirebaseUser,
     @Body() dto: CreateUserDto,
@@ -39,7 +39,7 @@ export class UsersController {
   }
 
   @Patch('me')
-  @UseGuards(FirebaseAuthGuard)
+  @UseGuards(JwtAuthGuard)
   async update(
     @CurrentUser() user: FirebaseUser,
     @Body() dto: UpdateUserDto,
@@ -48,7 +48,7 @@ export class UsersController {
   }
 
   @Get('search')
-  @UseGuards(FirebaseAuthGuard)
+  @UseGuards(JwtAuthGuard)
   async searchByNickname(@Query('nickname') nickname: string) {
     if (!nickname) {
       throw new NotFoundException('닉네임을 입력해주세요');

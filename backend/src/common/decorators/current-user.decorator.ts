@@ -1,6 +1,7 @@
 import { createParamDecorator, ExecutionContext } from '@nestjs/common';
 
 export interface FirebaseUser {
+  id: string;
   firebaseUid: string;
   email?: string;
 }

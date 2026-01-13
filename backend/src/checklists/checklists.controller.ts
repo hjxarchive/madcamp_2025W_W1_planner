@@ -11,12 +11,12 @@ import {
 } from '@nestjs/common';
 import { ChecklistsService } from './checklists.service';
 import { CreateChecklistDto, UpdateChecklistDto } from './dto';
-import { FirebaseAuthGuard, CurrentUser } from '../common';
+import { JwtAuthGuard, CurrentUser } from '../common';
 import type { FirebaseUser } from '../common';
 import { UsersService } from '../users/users.service';
 
 @Controller()
-@UseGuards(FirebaseAuthGuard)
+@UseGuards(JwtAuthGuard)
 export class ChecklistsController {
   constructor(
     private readonly checklistsService: ChecklistsService,

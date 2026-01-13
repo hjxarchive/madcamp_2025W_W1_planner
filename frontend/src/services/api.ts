@@ -156,10 +156,6 @@ class ApiService {
 
   constructor() {
     this.baseUrl = API_BASE_URL;
-    // 개발 모드에서는 자동으로 dev-token 설정
-    if (__DEV__) {
-      this.token = 'dev-token';
-    }
   }
 
   setToken(token: string | null) {
@@ -177,10 +173,8 @@ class ApiService {
       ...(options.headers as Record<string, string>),
     };
 
-    // 개발 모드에서는 항상 토큰 포함 (dev-token)
-    const authToken = this.token || (__DEV__ ? 'dev-token' : null);
-    if (authToken) {
-      headers['Authorization'] = `Bearer ${authToken}`;
+    if (this.token) {
+      headers['Authorization'] = `Bearer ${this.token}`;
     }
 
     try {

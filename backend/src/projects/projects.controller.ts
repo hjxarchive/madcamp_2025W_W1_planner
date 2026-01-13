@@ -18,12 +18,12 @@ import {
   CompleteProjectDto,
   AddMemberDto,
 } from './dto';
-import { FirebaseAuthGuard, CurrentUser } from '../common';
+import { JwtAuthGuard, CurrentUser } from '../common';
 import type { FirebaseUser } from '../common';
 import { UsersService } from '../users/users.service';
 
 @Controller('projects')
-@UseGuards(FirebaseAuthGuard)
+@UseGuards(JwtAuthGuard)
 export class ProjectsController {
   constructor(
     private readonly projectsService: ProjectsService,

@@ -1,10 +1,10 @@
 import { Controller, Get, Post, Body, Param, UseGuards } from '@nestjs/common';
 import { LocationsService } from './locations.service';
 import { CreateLocationDto } from './dto';
-import { FirebaseAuthGuard } from '../common';
+import { JwtAuthGuard } from '../common';
 
 @Controller('locations')
-@UseGuards(FirebaseAuthGuard)
+@UseGuards(JwtAuthGuard)
 export class LocationsController {
   constructor(private readonly locationsService: LocationsService) {}
 

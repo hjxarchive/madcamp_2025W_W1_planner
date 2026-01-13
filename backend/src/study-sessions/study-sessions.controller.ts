@@ -1,11 +1,11 @@
 import { Controller, Post, Param, UseGuards } from '@nestjs/common';
 import { StudySessionsService } from './study-sessions.service';
-import { FirebaseAuthGuard, CurrentUser } from '../common';
+import { JwtAuthGuard, CurrentUser } from '../common';
 import type { FirebaseUser } from '../common';
 import { UsersService } from '../users/users.service';
 
 @Controller()
-@UseGuards(FirebaseAuthGuard)
+@UseGuards(JwtAuthGuard)
 export class StudySessionsController {
   constructor(
     private readonly studySessionsService: StudySessionsService,
