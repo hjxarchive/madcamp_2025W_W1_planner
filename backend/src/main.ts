@@ -75,8 +75,8 @@ async function bootstrap() {
   const port = process.env.PORT ?? 3000;
   await app.listen(port);
   console.log(`🚀 Server running on http://localhost:${port}`);
-  if (isDev) {
-    console.log('🔧 개발 모드: Firebase 인증이 우회됩니다 (dev-token 사용 가능)');
+  if (process.env.DEV_AUTH_BYPASS === 'true') {
+    console.log('🔧 DEV_AUTH_BYPASS 모드: dev-token으로 인증 우회 가능');
   }
 }
 bootstrap();

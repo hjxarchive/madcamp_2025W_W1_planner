@@ -28,6 +28,9 @@ import {
 
 const DEV_FIREBASE_UID = 'dev-user-001';
 
+// DEV_AUTH_BYPASS=true 환경변수가 설정된 경우에만 dev-token 허용
+const isDevAuthBypass = () => process.env.DEV_AUTH_BYPASS === 'true';
+
 interface AuthenticatedSocket extends Socket {
   userId?: string;
   firebaseUid?: string;
@@ -61,27 +64,22 @@ export class TimerGateway implements OnGatewayConnection, OnGatewayDisconnect {
       const token = client.handshake.auth?.token ||
         client.handshake.headers?.authorization?.replace('Bearer ', '');
 
-      const isDev = process.env.NODE_ENV !== 'production';
       let firebaseUid: string;
 
-      if (isDev && (!token || token === 'dev-token')) {
+      // DEV_AUTH_BYPASS=true일 때만 dev-token 허용
+      if (isDevAuthBypass() && (!token || token === 'dev-token')) {
         firebaseUid = DEV_FIREBASE_UID;
       } else if (token) {
         try {
           const decodedToken = await admin.auth().verifyIdToken(token);
           firebaseUid = decodedToken.uid;
         } catch (error) {
-          if (isDev) {
-            console.warn('Firebase 인증 실패, 개발 모드로 임시 사용자 사용');
-            firebaseUid = DEV_FIREBASE_UID;
-          } else {
-            client.emit('timer:error', {
-              code: 'UNAUTHORIZED',
-              message: '인증에 실패했습니다',
-            } as TimerErrorPayload);
-            client.disconnect();
-            return;
-          }
+          client.emit('timer:error', {
+            code: 'UNAUTHORIZED',
+            message: '인증에 실패했습니다',
+          } as TimerErrorPayload);
+          client.disconnect();
+          return;
         }
       } else {
         client.emit('timer:error', {

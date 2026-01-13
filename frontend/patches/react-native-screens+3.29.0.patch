@@ -4,10 +4,10 @@ index 46d86c8..9db00a2 100644
 +++ b/node_modules/react-native-screens/android/src/main/java/com/swmansion/rnscreens/ScreenStack.kt
 @@ -312,7 +312,7 @@ class ScreenStack(context: Context?) : ScreenContainer(context) {
      }
- 
+
      private fun obtainDrawingOp(): DrawingOp =
 -        if (drawingOpPool.isEmpty()) DrawingOp() else drawingOpPool.removeLast()
 +        if (drawingOpPool.isEmpty()) DrawingOp() else drawingOpPool.removeAt(drawingOpPool.size - 1)
- 
+
      private inner class DrawingOp {
          var canvas: Canvas? = null

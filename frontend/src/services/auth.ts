@@ -10,7 +10,7 @@ import { api } from './api';
 // webClientId는 Firebase Console > Authentication > Sign-in method > Google에서 확인
 GoogleSignin.configure({
   webClientId:
-    '1234567890-xxxxxxxxxxxxxxxxxxxxxxxxxxxx.apps.googleusercontent.com', // TODO: 실제 웹 클라이언트 ID로 교체
+    '380320770757-o7h9ckbrk4bg4tk6nfta98dl5a269omf.apps.googleusercontent.com',
   offlineAccess: true,
 });
 

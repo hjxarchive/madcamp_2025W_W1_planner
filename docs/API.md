@@ -11,10 +11,138 @@ Development: http://localhost:3000
 
 ## 인증
 
-Firebase Authentication을 사용합니다. 모든 API 요청에 Firebase ID Token을 Header에 포함해야 합니다.
+Firebase Authentication과 JWT를 사용합니다.
+
+### 인증 흐름
+
+1. 클라이언트에서 Google Sign-In으로 Firebase ID Token 획득
+2. `POST /api/auth/google`에 ID Token 전송
+3. 서버에서 JWT Access Token + Refresh Token 발급
+4. 이후 모든 API 요청에 JWT Access Token 사용
 
 ```
-Authorization: Bearer <firebase-id-token>
+Authorization: Bearer <jwt-access-token>
+```
+
+### 개발 모드 (DEV_AUTH_BYPASS)
+
+서버를 `DEV_AUTH_BYPASS=true` 환경변수와 함께 실행하면 `dev-token`으로 인증을 우회할 수 있습니다.
+
+```bash
+# 개발 모드로 서버 실행
+DEV_AUTH_BYPASS=true npm run start:dev
+# 또는
+npm run start:dev:bypass
+```
+
+```
+Authorization: Bearer dev-token
+```
+
+---
+
+## 📌 Auth
+
+### Google 로그인
+
+```http
+POST /api/auth/google
+```
+
+Firebase ID Token을 검증하고 JWT 토큰을 발급합니다.
+
+**Request Body**
+
+```json
+{
+  "idToken": "<firebase-id-token>"
+}
+```
+
+**Response (200 OK)**
+
+```json
+{
+  "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "refreshToken": "550e8400-e29b-41d4-a716-446655440000",
+  "expiresIn": 900,
+  "isNewUser": false,
+  "user": {
+    "id": "uuid",
+    "firebaseUid": "firebase-uid",
+    "nickname": "사용자닉네임",
+    "profileEmoji": "😀"
+  }
+}
+```
+
+> ℹ️ `expiresIn`은 초 단위 (900 = 15분)
+> ℹ️ `isNewUser`가 `true`이면 신규 가입 사용자
+
+### 토큰 갱신
+
+```http
+POST /api/auth/refresh
+```
+
+Refresh Token으로 새로운 Access Token을 발급받습니다.
+
+**Request Body**
+
+```json
+{
+  "refreshToken": "550e8400-e29b-41d4-a716-446655440000"
+}
+```
+
+**Response (200 OK)**
+
+```json
+{
+  "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "refreshToken": "660e8400-e29b-41d4-a716-446655440001",
+  "expiresIn": 900,
+  "user": {
+    "id": "uuid",
+    "firebaseUid": "firebase-uid",
+    "nickname": "사용자닉네임",
+    "profileEmoji": "😀"
+  }
+}
+```
+
+**Error Response (401 Unauthorized)**
+
+```json
+{
+  "statusCode": 401,
+  "message": "유효하지 않은 리프레시 토큰입니다",
+  "error": "Unauthorized"
+}
+```
+
+### 로그아웃
+
+```http
+POST /api/auth/logout
+```
+
+Refresh Token을 무효화합니다.
+
+**Request Body**
+
+```json
+{
+  "refreshToken": "550e8400-e29b-41d4-a716-446655440000"
+}
+```
+
+**Response (200 OK)**
+
+```json
+{
+  "message": "로그아웃 되었습니다"
+}
 ```
 
 ---

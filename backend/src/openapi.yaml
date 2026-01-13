@@ -13,6 +13,8 @@ servers:
     description: Production
 
 tags:
+  - name: Auth
+    description: 인증 (Google 로그인, 토큰 갱신)
   - name: Users
     description: 사용자 관리
   - name: Projects
@@ -40,8 +42,15 @@ components:
     BearerAuth:
       type: http
       scheme: bearer
+      bearerFormat: JWT
+      description: |
+        JWT 액세스 토큰 (POST /auth/google 응답에서 받은 accessToken)
+        또는 Firebase ID Token (회원가입 시)
+    FirebaseAuth:
+      type: http
+      scheme: bearer
       bearerFormat: Firebase ID Token
-      description: Firebase Authentication ID Token
+      description: Firebase Authentication ID Token (회원가입 전용)
 
   schemas:
     User:
@@ -518,7 +527,143 @@ components:
         error:
           type: string
 
+    # Auth Schemas
+    GoogleLoginDto:
+      type: object
+      required:
+        - idToken
+      properties:
+        idToken:
+          type: string
+          description: Firebase에서 받은 Google ID Token
+          example: "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9..."
+
+    TokenResponse:
+      type: object
+      properties:
+        accessToken:
+          type: string
+          description: JWT 액세스 토큰 (1시간 유효)
+        refreshToken:
+          type: string
+          description: 리프레시 토큰 (7일 유효)
+        expiresIn:
+          type: integer
+          description: 액세스 토큰 만료 시간 (초)
+          example: 3600
+        user:
+          $ref: '#/components/schemas/User'
+
+    RefreshTokenDto:
+      type: object
+      required:
+        - refreshToken
+      properties:
+        refreshToken:
+          type: string
+          description: 리프레시 토큰
+
+    RefreshTokenResponse:
+      type: object
+      properties:
+        accessToken:
+          type: string
+          description: 새 JWT 액세스 토큰
+        expiresIn:
+          type: integer
+          description: 액세스 토큰 만료 시간 (초)
+          example: 3600
+
 paths:
+  # ===== Auth =====
+  /auth/google:
+    post:
+      tags: [Auth]
+      summary: Google 로그인
+      description: |
+        Firebase Google 로그인 후 받은 ID Token으로 서버 JWT 토큰을 발급받습니다.
+
+        **신규 사용자**: isNewUser=true이면 회원가입이 필요합니다 (POST /users)
+
+        **개발 모드**: DEV_AUTH_BYPASS=true 환경에서는 dev-token으로 테스트 가능
+      security: []  # 인증 불필요
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GoogleLoginDto'
+      responses:
+        '200':
+          description: 로그인 성공
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/TokenResponse'
+                  - type: object
+                    properties:
+                      isNewUser:
+                        type: boolean
+                        description: 신규 사용자 여부 (true면 POST /users로 회원가입 필요)
+        '401':
+          description: 유효하지 않은 토큰
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /auth/refresh:
+    post:
+      tags: [Auth]
+      summary: 토큰 갱신
+      description: 리프레시 토큰으로 새 액세스 토큰을 발급받습니다.
+      security: []  # 인증 불필요
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshTokenDto'
+      responses:
+        '200':
+          description: 갱신 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RefreshTokenResponse'
+        '401':
+          description: 유효하지 않은 리프레시 토큰
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /auth/logout:
+    post:
+      tags: [Auth]
+      summary: 로그아웃
+      description: 리프레시 토큰을 무효화합니다.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshTokenDto'
+      responses:
+        '200':
+          description: 로그아웃 성공
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: 로그아웃되었습니다
+        '401':
+          description: 인증 실패
+
   # ===== Users =====
   /users/me:
     get:
