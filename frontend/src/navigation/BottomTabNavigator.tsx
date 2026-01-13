@@ -1,6 +1,7 @@
 import React from 'react';
 import { StyleSheet } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { CommonActions } from '@react-navigation/native';
 import MaterialDesignIcons from '@react-native-vector-icons/material-design-icons';
 const Icon = MaterialDesignIcons;
 import { HomeScreen, PastScreen, StudyScreen, CoStudyScreen } from '@screens/index';
@@ -60,6 +61,17 @@ export const BottomTabNavigator: React.FC = () => {
           tabBarLabel: TAB_NAMES.REPORT,
           tabBarIcon: ({ focused }) => <TabIcon name={TAB_NAMES.REPORT} focused={focused} />,
         }}
+        listeners={({ navigation }) => ({
+          tabPress: (e) => {
+            e.preventDefault();
+            navigation.dispatch(
+              CommonActions.reset({
+                index: 0,
+                routes: [{ name: 'Report' }],
+              })
+            );
+          },
+        })}
       />
       <Tab.Screen
         name="Archive"
@@ -90,15 +102,15 @@ const styles = StyleSheet.create({
     shadowOpacity: 0,
     height: 70,
     paddingTop: SPACING.sm,
-    paddingBottom: SPACING.lg,
+    paddingBottom: SPACING.md,
   },
   tabBarLabel: {
     fontSize: FONT_SIZES.xs,
     fontWeight: '500',
-    marginTop: 2,
+    marginTop: -5,
   },
   tabBarItem: {
-    paddingVertical: SPACING.xs,
+    paddingVertical: SPACING.xxs,
   },
 });
 

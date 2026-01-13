@@ -439,13 +439,29 @@ export const HomeScreen: React.FC = () => {
       const todayStr = getTodayDateString(); // 로컬 타임존 기준
       const res = await api.getReceiptDetails(todayStr);
       if (res.data) {
-        setReceiptData({
-          date: res.data.date,
-          tasks: res.data.tasks,
-          totalTimeMs: res.data.totalTimeMs,
-          timeSlots: res.data.timeSlots,
-          imageUrl: res.data.imageUrl,
-        });
+        // 이미지가 이미 있는 경우 자동으로 새로고침
+        if (res.data.imageUrl) {
+          await api.generateReceiptImage(todayStr);
+          // 새로고침 후 다시 데이터 가져오기
+          const refreshedRes = await api.getReceiptDetails(todayStr);
+          if (refreshedRes.data) {
+            setReceiptData({
+              date: refreshedRes.data.date,
+              tasks: refreshedRes.data.tasks,
+              totalTimeMs: refreshedRes.data.totalTimeMs,
+              timeSlots: refreshedRes.data.timeSlots,
+              imageUrl: refreshedRes.data.imageUrl,
+            });
+          }
+        } else {
+          setReceiptData({
+            date: res.data.date,
+            tasks: res.data.tasks,
+            totalTimeMs: res.data.totalTimeMs,
+            timeSlots: res.data.timeSlots,
+            imageUrl: res.data.imageUrl,
+          });
+        }
         setShowReceiptModal(true);
       }
     } catch (error) {
@@ -597,7 +613,6 @@ export const HomeScreen: React.FC = () => {
             onPress={handleShowReceipt}
             disabled={isLoadingReceipt}
           >
-            <Icon name="receipt" size={20} color={COLORS.surface} />
             <Text style={styles.receiptButtonText}>
               {isLoadingReceipt ? '로딩 중...' : '오늘의 영수증 보기'}
             </Text>
@@ -697,14 +712,37 @@ export const HomeScreen: React.FC = () => {
 
             <View style={styles.receiptModalFooter}>
               {receiptData?.imageUrl ? (
-                // 이미지가 있으면 새로고침 버튼
+                // 이미지가 있으면 아카이빙 버튼 (클릭 시 자동 리로드)
                 <TouchableOpacity
                   style={styles.saveReceiptButton}
-                  onPress={handleGenerateReceiptImage}
+                  onPress={async () => {
+                    setIsGeneratingReceipt(true);
+                    try {
+                      const todayStr = getTodayDateString();
+                      await api.generateReceiptImage(todayStr);
+                      // 새로고침 후 다시 데이터 가져오기
+                      const refreshedRes = await api.getReceiptDetails(todayStr);
+                      if (refreshedRes.data) {
+                        setReceiptData({
+                          date: refreshedRes.data.date,
+                          tasks: refreshedRes.data.tasks,
+                          totalTimeMs: refreshedRes.data.totalTimeMs,
+                          timeSlots: refreshedRes.data.timeSlots,
+                          imageUrl: refreshedRes.data.imageUrl,
+                        });
+                      }
+                      Alert.alert('완료', '영수증이 아카이빙되었습니다!');
+                    } catch (error) {
+                      console.error('영수증 아카이빙 실패:', error);
+                      Alert.alert('오류', '영수증 아카이빙에 실패했습니다.');
+                    } finally {
+                      setIsGeneratingReceipt(false);
+                    }
+                  }}
                   disabled={isGeneratingReceipt}
                 >
-                  <Icon name="refresh" size={20} color={COLORS.surface} />
-                  <Text style={styles.saveReceiptButtonText}>영수증 새로고침</Text>
+                  <Icon name="archive" size={20} color={COLORS.surface} />
+                  <Text style={styles.saveReceiptButtonText}>영수증 아카이빙</Text>
                 </TouchableOpacity>
               ) : (
                 // 이미지가 없으면 생성 버튼
@@ -734,7 +772,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: 180,
+    paddingBottom: SPACING.base,
   },
   // Header
   header: {
@@ -786,6 +824,8 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.surfaceLight,
     borderRadius: BORDER_RADIUS.lg,
     padding: SPACING.base,
+    borderWidth: 1,
+    borderColor: COLORS.gray300,
   },
   emptyTodo: {
     alignItems: 'center',

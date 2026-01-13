@@ -144,8 +144,8 @@ const ReportDetailView: React.FC<{
         <View style={styles.chartSection}>
           <View style={styles.chartWrapper}>
             <ReportDonutChart
-              tasks={tasksWithTime}
-              totalTimeMs={chartTotalTimeMs}
+              tasks={allTasks}
+              totalTimeMs={displayTotalTimeMs}
               size={320}
               showLabels={true}
               onSegmentClick={handleSegmentClick}
@@ -232,11 +232,12 @@ export const PastScreen: React.FC = () => {
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const scrollViewRef = useRef<ScrollView>(null);
 
-  // 탭 포커스 시 스크롤 맨 위로 이동
+  // 탭 포커스 시 스크롤 맨 위로 이동 및 데이터 리로드
   useFocusEffect(
     useCallback(() => {
       scrollViewRef.current?.scrollTo({ y: 0, animated: false });
-    }, [])
+      loadPastProjects();
+    }, [loadPastProjects])
   );
 
   // Load past projects from API

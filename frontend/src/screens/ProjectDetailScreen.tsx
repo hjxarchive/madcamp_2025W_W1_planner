@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -6,6 +6,7 @@ import {
   StyleSheet,
   TouchableOpacity,
   Alert,
+  Animated,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
@@ -17,11 +18,51 @@ import { TaskItem } from '@components/TaskItem';
 import { FloatingTimer } from '@components/FloatingTimer';
 import { WriteReportModal } from '@components/WriteReportModal';
 import { AddTaskModal } from '@components/AddTaskModal';
+import { AddMemberModal } from '@components/AddMemberModal';
 import { api } from '@services/api';
 import { COLORS, FONT_SIZES, FONTS, SPACING, BORDER_RADIUS, formatTime, formatDate } from '@constants/index';
 import type { Project, Task, Member } from '../types';
 import { transformProjectDetail } from '../types';
 import { useTimer } from '@contexts/TimerContext';
+
+// ========================
+// Animated Dots Component
+// ========================
+const AnimatedDot: React.FC<{ delay: number; style: any }> = ({ delay, style }) => {
+  const opacity = useRef(new Animated.Value(0.3)).current;
+
+  useEffect(() => {
+    const animation = Animated.loop(
+      Animated.sequence([
+        Animated.timing(opacity, {
+          toValue: 1,
+          duration: 600,
+          delay,
+          useNativeDriver: true,
+        }),
+        Animated.timing(opacity, {
+          toValue: 0.3,
+          duration: 600,
+          useNativeDriver: true,
+        }),
+      ])
+    );
+    animation.start();
+    return () => animation.stop();
+  }, [opacity, delay]);
+
+  return <Animated.View style={[style, { opacity }]} />;
+};
+
+const AnimatedDots: React.FC = () => {
+  return (
+    <View style={styles.animatedDots}>
+      <AnimatedDot delay={0} style={[styles.dot, styles.dotOrange]} />
+      <AnimatedDot delay={200} style={[styles.dot, styles.dotYellow]} />
+      <AnimatedDot delay={400} style={[styles.dot, styles.dotOrangeLight]} />
+    </View>
+  );
+};
 
 // ========================
 // Personal Project Page
@@ -82,13 +123,7 @@ const PersonalProjectPage: React.FC<PersonalProjectPageProps> = ({
         <View style={styles.headerCenter}>
           <Text style={styles.headerTitle}>{project.title}</Text>
           <View style={styles.headerTimeRow}>
-            {currentTaskInProject && isTimerRunning && (
-              <View style={styles.animatedDots}>
-                <View style={[styles.dot, styles.dotOrange]} />
-                <View style={[styles.dot, styles.dotYellow]} />
-                <View style={[styles.dot, styles.dotOrangeLight]} />
-              </View>
-            )}
+            {currentTaskInProject && isTimerRunning && <AnimatedDots />}
             <Text style={[
               styles.headerTime,
               currentTaskInProject && isTimerRunning && styles.headerTimeActive
@@ -201,6 +236,7 @@ interface TeamProjectPageProps {
   onDeleteProject: () => void;
   onStartTaskTimer: (task: Task) => void;
   onAddTask: () => void;
+  onAddMember: () => void;
   isTimerRunning: boolean;
   currentTaskId: string | null;
   currentProjectId: string | null;
@@ -219,6 +255,7 @@ const TeamProjectPage: React.FC<TeamProjectPageProps> = ({
   onDeleteProject,
   onStartTaskTimer,
   onAddTask,
+  onAddMember,
   isTimerRunning,
   currentTaskId,
   currentProjectId,
@@ -282,20 +319,14 @@ const TeamProjectPage: React.FC<TeamProjectPageProps> = ({
         <View style={styles.headerCenter}>
           <Text style={styles.headerTitle}>{project.title}</Text>
           <View style={styles.headerTimeRow}>
-            {hasAnyActiveTimer && (
-              <View style={styles.animatedDots}>
-                <View style={[styles.dot, styles.dotOrange]} />
-                <View style={[styles.dot, styles.dotYellow]} />
-                <View style={[styles.dot, styles.dotOrangeLight]} />
-              </View>
-            )}
+            {hasAnyActiveTimer && <AnimatedDots />}
             <Text style={[styles.headerTime, hasAnyActiveTimer && styles.headerTimeActiveTeam]}>
               {formatTime(displayTotalTime)}
             </Text>
           </View>
         </View>
         <View style={styles.headerRightButtons}>
-          <TouchableOpacity style={styles.addMemberButton}>
+          <TouchableOpacity style={styles.addMemberButton} onPress={onAddMember}>
             <Text style={styles.addMemberText}>+ 팀원</Text>
           </TouchableOpacity>
           <TouchableOpacity onPress={onDeleteProject} style={styles.deleteProjectButton}>
@@ -329,8 +360,10 @@ const TeamProjectPage: React.FC<TeamProjectPageProps> = ({
         <View style={styles.memberCardsContainer}>
           <ScrollView
             horizontal
-            showsHorizontalScrollIndicator={false}
+            showsHorizontalScrollIndicator={true}
             contentContainerStyle={styles.memberCardsContent}
+            bounces={true}
+            decelerationRate="fast"
           >
             {project.members?.map(member => {
               const memberIsActive = isMemberActive(member.id);
@@ -452,6 +485,7 @@ export const ProjectDetailScreen: React.FC<ProjectDetailScreenProps> = ({ route 
   // Modal states
   const [showWriteReport, setShowWriteReport] = useState(false);
   const [showAddTask, setShowAddTask] = useState(false);
+  const [showAddMember, setShowAddMember] = useState(false);
 
   // Load project from API
   const loadProject = useCallback(async (projectId: string) => {
@@ -670,6 +704,44 @@ export const ProjectDetailScreen: React.FC<ProjectDetailScreenProps> = ({ route 
     setShowWriteReport(true);
   }, []);
 
+  const handleAddMember = useCallback(() => {
+    setShowAddMember(true);
+  }, []);
+
+  const handleAddMemberSubmit = useCallback(async (nickname: string) => {
+    if (!project) return;
+
+    try {
+      // 닉네임으로 사용자 검색
+      const response = await api.searchUserByNickname(nickname);
+      console.log('[AddMember] Searched user:', response);
+      
+      const searchedUser = response.data;
+      if (!searchedUser || !searchedUser.id) {
+        Alert.alert('알림', '해당 닉네임의 사용자를 찾을 수 없습니다.');
+        return;
+      }
+
+      // 이미 팀원인지 확인
+      const isAlreadyMember = project.members?.some(m => m.id === searchedUser.id);
+      if (isAlreadyMember) {
+        Alert.alert('알림', '이미 팀에 속한 사용자입니다.');
+        return;
+      }
+
+      // 팀원 추가
+      console.log('[AddMember] Adding member with userId:', searchedUser.id, 'type:', typeof searchedUser.id);
+      await api.addProjectMember(project.id, { userId: String(searchedUser.id) });
+      Alert.alert('성공', `${searchedUser.nickname}님을 팀에 추가했습니다.`);
+      
+      // 프로젝트 다시 로드
+      await loadProject(project.id);
+    } catch (error) {
+      console.error('팀원 추가 실패:', error);
+      Alert.alert('오류', '팀원 추가에 실패했습니다.');
+    }
+  }, [project, loadProject]);
+
   const handleSaveReport = useCallback(async (reportData: { rating: number }) => {
     if (!project) return;
 
@@ -708,6 +780,7 @@ export const ProjectDetailScreen: React.FC<ProjectDetailScreenProps> = ({ route 
     onDeleteProject: handleDeleteProject,
     onStartTaskTimer: handleStartTaskTimer,
     onAddTask: handleAddTask,
+    onAddMember: handleAddMember,
     isTimerRunning,
     currentTaskId,
     currentProjectId,
@@ -741,6 +814,13 @@ export const ProjectDetailScreen: React.FC<ProjectDetailScreenProps> = ({ route 
         onAdd={handleAddTaskSubmit}
         members={project.members}
       />
+
+      {/* Add Member Modal */}
+      <AddMemberModal
+        isOpen={showAddMember}
+        onClose={() => setShowAddMember(false)}
+        onAdd={handleAddMemberSubmit}
+      />
     </View>
   );
 };
@@ -751,7 +831,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.surface,
   },
   containerActiveTeam: {
-    backgroundColor: '#FFFBEB', // amber-50 gradient 대체
+    backgroundColor: '#F9FAFB', // gray-50 - 차분한 배경색
   },
   loadingContainer: {
     flex: 1,
@@ -766,6 +846,7 @@ const styles = StyleSheet.create({
   },
   // Header
   header: {
+    position: 'relative',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -775,8 +856,14 @@ const styles = StyleSheet.create({
     borderBottomColor: COLORS.gray200,
   },
   headerActiveTeam: {
-    borderBottomColor: '#FDBA74', // orange-300
-    backgroundColor: '#FFF7ED', // orange-50
+    borderBottomColor: '#D1D5DB', // gray-300
+    borderBottomWidth: 2,
+    backgroundColor: '#F3F4F6', // gray-100
+    shadowColor: '#6B7280', // gray-500
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    elevation: 4,
   },
   backButton: {
     width: 40,
@@ -785,13 +872,18 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
   },
   headerCenter: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
     alignItems: 'center',
-    flex: 1,
+    justifyContent: 'center',
+    pointerEvents: 'none',
   },
   headerTitle: {
     fontSize: FONT_SIZES.md,
     fontWeight: '600',
     color: COLORS.gray900,
+    textAlign: 'center',
   },
   headerTimeRow: {
     flexDirection: 'row',
@@ -810,7 +902,7 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.mono,
   },
   headerTimeActiveTeam: {
-    color: '#EA580C', // orange-600
+    color: '#374151', // gray-700
     fontWeight: '700',
     fontFamily: FONTS.mono,
   },
@@ -827,13 +919,13 @@ const styles = StyleSheet.create({
     borderRadius: 3,
   },
   dotOrange: {
-    backgroundColor: '#F97316', // orange-500
+    backgroundColor: '#6B7280', // gray-500
   },
   dotYellow: {
-    backgroundColor: '#FACC15', // yellow-400
+    backgroundColor: '#9CA3AF', // gray-400
   },
   dotOrangeLight: {
-    backgroundColor: '#FB923C', // orange-400
+    backgroundColor: '#D1D5DB', // gray-300
   },
   addMemberButton: {
     paddingHorizontal: 8,
@@ -923,11 +1015,14 @@ const styles = StyleSheet.create({
   },
   memberCardsContent: {
     paddingHorizontal: SPACING.base,
+    paddingVertical: SPACING.xs,
+    flexDirection: 'row',
     gap: SPACING.md,
   },
   // Task Section
   taskSection: {
     paddingHorizontal: SPACING.base,
+    marginTop: SPACING.sm,
   },
   taskHeader: {
     flexDirection: 'row',
@@ -947,8 +1042,8 @@ const styles = StyleSheet.create({
   },
   taskListActive: {
     borderWidth: 2,
-    borderColor: '#FDBA74', // orange-300
-    shadowColor: '#F97316',
+    borderColor: '#D1D5DB', // gray-300
+    shadowColor: '#6B7280', // gray-500
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,

@@ -450,21 +450,24 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    zIndex: 10,
+    marginTop: '-30%',
   },
   logoIcon: {
-    marginBottom: SPACING.lg,
+    marginBottom: 0,
   },
   logoImageContainer: {
-    width: 134,
-    height: 134,
+    width: 170,
+    height: 170,
   },
   logoImage: {
-    width: 134,
-    height: 134,
+    width: 170,
+    height: 170,
   },
   logoTextContainer: {
     flexDirection: 'row',
     marginBottom: SPACING.sm,
+    zIndex: 10,
   },
   logo: {
     fontSize: 52,

@@ -226,6 +226,7 @@ const styles = StyleSheet.create({
     fontSize: 30,
     color: COLORS.gray900,
     fontFamily: FONTS.monoBold,
+    fontWeight: 'bold',
     letterSpacing: 0.5,
   },
   taskText: {
