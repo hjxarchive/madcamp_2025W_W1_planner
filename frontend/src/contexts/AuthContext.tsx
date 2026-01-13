@@ -87,8 +87,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const logout = useCallback(async () => {
     setIsLoading(true);
     try {
-      // WebSocket 연결 해제
-      socketService.disconnect();
+      // WebSocket 완전 초기화 (리스너 포함)
+      socketService.reset();
 
       await authService.logout();
       setUser(null);

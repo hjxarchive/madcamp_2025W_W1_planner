@@ -83,8 +83,8 @@ export interface TimerErrorPayload {
 
 type EventCallback<T> = (data: T) => void;
 
-// 대기 중인 리스너 타입
-interface PendingListener {
+// 리스너 타입
+interface RegisteredListener {
   event: string;
   callback: EventCallback<any>;
 }
@@ -94,14 +94,24 @@ class SocketService {
   private reconnectAttempts = 0;
   private maxReconnectAttempts = 5;
   private reconnectDelay = 1000; // 시작 딜레이 1초
-  // 소켓 연결 전에 등록된 리스너들을 저장
-  private pendingListeners: PendingListener[] = [];
+  // 등록된 모든 리스너들을 저장 (재연결 시 복원용)
+  private registeredListeners: RegisteredListener[] = [];
+  // 연결 상태 변경 콜백
+  private onConnectionChange: ((connected: boolean) => void) | null = null;
 
   connect(token: string): Promise<void> {
     return new Promise((resolve, reject) => {
+      // 이미 연결된 경우
       if (this.socket?.connected) {
         resolve();
         return;
+      }
+
+      // 기존 소켓이 있으면 정리
+      if (this.socket) {
+        this.socket.removeAllListeners();
+        this.socket.disconnect();
+        this.socket = null;
       }
 
       const serverUrl = getServerUrl();
@@ -120,8 +130,10 @@ class SocketService {
       this.socket.on('connect', () => {
         console.log('[Socket] Connected');
         this.reconnectAttempts = 0;
-        // 대기 중인 리스너들 등록
-        this.registerPendingListeners();
+        // 저장된 리스너들 재등록
+        this.reregisterListeners();
+        // 연결 상태 콜백 호출
+        this.onConnectionChange?.(true);
         resolve();
       });
 
@@ -129,12 +141,14 @@ class SocketService {
         console.error('[Socket] Connection error:', error.message);
         this.reconnectAttempts++;
         if (this.reconnectAttempts >= this.maxReconnectAttempts) {
+          this.onConnectionChange?.(false);
           reject(new Error('Failed to connect after multiple attempts'));
         }
       });
 
       this.socket.on('disconnect', (reason) => {
         console.log('[Socket] Disconnected:', reason);
+        this.onConnectionChange?.(false);
       });
 
       this.socket.on('reconnect', (attemptNumber) => {
@@ -142,6 +156,7 @@ class SocketService {
         this.reconnectAttempts = 0;
         // 재연결 시 타이머 상태 동기화 요청
         this.emit('timer:sync', {});
+        this.onConnectionChange?.(true);
       });
 
       this.socket.on('reconnect_error', (error) => {
@@ -150,14 +165,28 @@ class SocketService {
     });
   }
 
+  // 연결 상태 변경 콜백 설정
+  setOnConnectionChange(callback: ((connected: boolean) => void) | null): void {
+    this.onConnectionChange = callback;
+  }
+
   disconnect(): void {
     if (this.socket) {
       console.log('[Socket] Disconnecting');
+      this.socket.removeAllListeners();
       this.socket.disconnect();
       this.socket = null;
     }
-    // 대기열도 초기화
-    this.pendingListeners = [];
+    // 연결 상태 콜백 호출
+    this.onConnectionChange?.(false);
+    // 주의: registeredListeners는 유지 (재연결 시 복원을 위해)
+  }
+
+  // 완전 초기화 (로그아웃 시 사용)
+  reset(): void {
+    this.disconnect();
+    this.registeredListeners = [];
+    console.log('[Socket] Reset - all listeners cleared');
   }
 
   isConnected(): boolean {
@@ -174,32 +203,38 @@ class SocketService {
   }
 
   on<T>(event: string, callback: EventCallback<T>): void {
+    // 중복 등록 방지 (같은 이벤트+콜백 조합이 있으면 무시)
+    const exists = this.registeredListeners.some(
+      l => l.event === event && l.callback === callback
+    );
+    if (!exists) {
+      // 리스너 목록에 저장 (재연결 시 복원용)
+      this.registeredListeners.push({ event, callback });
+      console.log(`[Socket] Registered listener for: ${event} (total: ${this.registeredListeners.length})`);
+    }
+
+    // 소켓이 연결되어 있으면 바로 등록
     if (this.socket?.connected) {
       this.socket.on(event, callback as any);
-    } else {
-      // 소켓이 연결되지 않았으면 대기열에 추가
-      console.log(`[Socket] Queueing listener for: ${event}`);
-      this.pendingListeners.push({ event, callback });
     }
   }
 
-  // 대기 중인 리스너들을 등록
-  private registerPendingListeners(): void {
-    if (!this.socket || this.pendingListeners.length === 0) return;
+  // 저장된 리스너들을 소켓에 재등록
+  private reregisterListeners(): void {
+    if (!this.socket || this.registeredListeners.length === 0) return;
 
-    console.log(`[Socket] Registering ${this.pendingListeners.length} pending listeners`);
-    for (const { event, callback } of this.pendingListeners) {
+    console.log(`[Socket] Re-registering ${this.registeredListeners.length} listeners`);
+    for (const { event, callback } of this.registeredListeners) {
       this.socket.on(event, callback as any);
     }
-    this.pendingListeners = [];
   }
 
   off(event: string): void {
     if (this.socket) {
       this.socket.off(event);
     }
-    // 대기열에서도 제거
-    this.pendingListeners = this.pendingListeners.filter(l => l.event !== event);
+    // 저장된 리스너에서도 제거
+    this.registeredListeners = this.registeredListeners.filter(l => l.event !== event);
   }
 
   // Timer 관련 이벤트 emit 헬퍼

@@ -105,6 +105,23 @@ export const TimerProvider: React.FC<TimerProviderProps> = ({ children }) => {
     setElapsedTime(0);
   }, []);
 
+  // 소켓 연결 상태 콜백 설정
+  useEffect(() => {
+    socketService.setOnConnectionChange((connected) => {
+      console.log('[TimerContext] Socket connection changed:', connected);
+      setIsConnected(connected);
+
+      // 연결되면 타이머 상태 동기화
+      if (connected) {
+        socketService.syncTimer();
+      }
+    });
+
+    return () => {
+      socketService.setOnConnectionChange(null);
+    };
+  }, []);
+
   // WebSocket 이벤트 핸들러 설정
   useEffect(() => {
     // timer:started - 본인의 타이머가 시작됨

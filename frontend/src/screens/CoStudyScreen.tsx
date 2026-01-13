@@ -62,70 +62,87 @@ const CoStudyScreen: React.FC = () => {
   useEffect(() => {
     if (!user) return;
 
+    let isMounted = true;
+
     const connectSocket = async () => {
       setError(null);
       try {
         const token = await authService.getValidAccessToken();
         if (!token) {
           console.error('No valid access token available');
-          setError('인증에 실패했습니다. 다시 로그인해주세요.');
+          if (isMounted) {
+            setError('인증에 실패했습니다. 다시 로그인해주세요.');
+          }
           return;
         }
+
+        // 리스너 먼저 등록 (이벤트 놓치지 않도록)
+        setupSocketListeners();
+
         await studySocketService.connect(token);
-        setIsConnected(true);
-        studySocketService.syncStudy();
+
+        if (isMounted) {
+          setIsConnected(true);
+          // 연결 후 상태 동기화
+          studySocketService.syncStudy();
+        }
       } catch (err) {
         console.error('Study socket connection failed:', err);
-        setError('서버 연결에 실패했습니다.');
+        if (isMounted) {
+          setError('서버 연결에 실패했습니다.');
+        }
       }
+    };
+
+    const setupSocketListeners = () => {
+      studySocketService.onStudyJoined((data) => {
+        if (isMounted) {
+          setSelectedLocationId(data.locationId);
+          setIsJoining(false);
+        }
+      });
+
+      studySocketService.onStudyLeft(() => {
+        if (isMounted) {
+          setSelectedLocationId(null);
+          setParticipants([]);
+        }
+      });
+
+      studySocketService.onStudySynced((data) => {
+        if (isMounted) {
+          if (data.locationId) {
+            setSelectedLocationId(data.locationId);
+            setParticipants(data.participants || []);
+          }
+          setIsLoading(false);
+        }
+      });
+
+      studySocketService.onParticipantsUpdated((data) => {
+        if (isMounted) {
+          setParticipants(data.participants);
+        }
+      });
+
+      studySocketService.onStudyError((err) => {
+        console.error('Study error:', err);
+        if (isMounted) {
+          setIsJoining(false);
+          setError(err.message || '스터디 참가 중 오류가 발생했습니다.');
+        }
+      });
     };
 
     connectSocket();
 
     return () => {
+      isMounted = false;
+      studySocketService.removeAllStudyListeners();
       studySocketService.disconnect();
       setIsConnected(false);
     };
   }, [user]);
-
-  // Setup socket event listeners
-  useEffect(() => {
-    if (!isConnected) return;
-
-    studySocketService.onStudyJoined((data) => {
-      setSelectedLocationId(data.locationId);
-      setIsJoining(false);
-    });
-
-    studySocketService.onStudyLeft(() => {
-      setSelectedLocationId(null);
-      setParticipants([]);
-    });
-
-    studySocketService.onStudySynced((data) => {
-      if (data.locationId) {
-        setSelectedLocationId(data.locationId);
-        setParticipants(data.participants || []);
-      }
-      setIsLoading(false);
-    });
-
-    studySocketService.onParticipantsUpdated((data) => {
-      if (data.locationId === selectedLocationId) {
-        setParticipants(data.participants);
-      }
-    });
-
-    studySocketService.onStudyError((err) => {
-      console.error('Study error:', err);
-      setIsJoining(false);
-      setError(err.message || '스터디 참가 중 오류가 발생했습니다.');
-    });
-
-    return () => {
-      studySocketService.removeAllStudyListeners();
-    };
-  }, [isConnected, selectedLocationId]);
 
   const handleJoinLocation = useCallback((locationId: string) => {
     setIsJoining(true);

@@ -34,6 +34,15 @@ class AuthService {
   // Google Sign-In
   async signInWithGoogle(): Promise<AuthResponse> {
     try {
+      // [추가] 1. 새로운 로그인 시도 전, 기존에 남아있을 수 있는 모든 인증 상태 강제 초기화
+      // 이전 세션의 타이머나 리프레시 진행 중 상태가 새 세션에 영향을 주지 않도록 합니다.
+      this.resetMemoryState();
+
+      this.stopAutoRefresh();
+      this.isRefreshing = false;
+      this.refreshPromise = null;
+
+
       await GoogleSignin.hasPlayServices();
       await GoogleSignin.signIn();
       const { idToken } = await GoogleSignin.getTokens();
@@ -46,8 +55,8 @@ class AuthService {
       const googleCredential = auth.GoogleAuthProvider.credential(idToken);
       await auth().signInWithCredential(googleCredential);
 
-      // Firebase ID 토큰 획득
-      const firebaseIdToken = await auth().currentUser?.getIdToken();
+      // Firebase ID 토큰 획득 (forceRefresh를 true로 설정하여 항상 최신 토큰 확보 권장)
+      const firebaseIdToken = await auth().currentUser?.getIdToken(true);
 
       if (!firebaseIdToken) {
         throw new Error('Firebase ID 토큰을 가져올 수 없습니다');
@@ -71,6 +80,11 @@ class AuthService {
 
       return data;
     } catch (error: any) {
+
+      // [추가] 4. 로그인 과정 중 에러 발생 시, 불완전한 인증 정보가 남지 않도록 정리
+      this.stopAutoRefresh();
+      secureStorage.clearAuth();
+
       if (error.code === statusCodes.SIGN_IN_CANCELLED) {
         throw new Error('로그인이 취소되었습니다');
       } else if (error.code === statusCodes.IN_PROGRESS) {
@@ -82,6 +96,13 @@ class AuthService {
     }
   }
 
+  // 메모리 상태만 깔끔하게 비우는 메서드 분리
+  private resetMemoryState() {
+    this.stopAutoRefresh();
+    this.isRefreshing = false;
+    this.refreshPromise = null;
+  }
+
   // 토큰 갱신
   async refreshTokens(): Promise<AuthResponse> {
     // 동시 갱신 요청 방지
@@ -90,7 +111,11 @@ class AuthService {
     }
 
     this.isRefreshing = true;
-    this.refreshPromise = this._doRefreshTokens();
+    // _doRefreshTokens 내부에서도 finally 처리가 확실해야 함
+    this.refreshPromise = this._doRefreshTokens().finally(() => {
+      this.isRefreshing = false;
+      this.refreshPromise = null;
+    });
 
     try {
       const result = await this.refreshPromise;
@@ -143,6 +168,15 @@ class AuthService {
       } catch (error) {
         console.warn('[Auth] Logout API call failed:', error);
       }
+
+      // 메모리에 뜬 좀비 플래그와 타이머 죽이기
+      this.resetMemoryState();
+      this.isRefreshing = false; // 리프레시 잠금 해제
+      this.refreshPromise = null; // 진행 중인 약속 파기
+
+
+      secureStorage.clearAuth();
+      api.setToken(null); // API 클라이언트 헤더 비우기
     }
 
     // Firebase 로그아웃
@@ -261,5 +295,5 @@ class AuthService {
 }
 
 export const authService = new AuthService();
-export { AuthUser };
+export type { AuthUser };
 export default authService;

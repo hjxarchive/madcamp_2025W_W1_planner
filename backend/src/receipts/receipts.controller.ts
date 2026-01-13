@@ -9,8 +9,10 @@ import {
   UseGuards,
   HttpCode,
   HttpStatus,
+  Logger,
 } from '@nestjs/common';
 import { ReceiptsService } from './receipts.service';
+import { ReceiptSchedulerService } from './receipt-scheduler.service';
 import { CreateReceiptDto } from './dto';
 import { JwtAuthGuard, CurrentUser } from '../common';
 import type { FirebaseUser } from '../common';
@@ -19,8 +21,11 @@ import { UsersService } from '../users/users.service';
 @Controller('receipts')
 @UseGuards(JwtAuthGuard)
 export class ReceiptsController {
+  private readonly logger = new Logger(ReceiptsController.name);
+
   constructor(
     private readonly receiptsService: ReceiptsService,
+    private readonly receiptSchedulerService: ReceiptSchedulerService,
     private readonly usersService: UsersService,
   ) {}
 
@@ -154,5 +159,18 @@ export class ReceiptsController {
       throw new Error('사용자를 찾을 수 없습니다');
     }
     await this.receiptsService.delete(dbUser.id, date);
+  }
+
+  /**
+   * 관리자용: 특정 날짜의 모든 사용자 영수증 일괄 생성
+   * POST /receipts/admin/generate-all/:date
+   *
+   * 주의: 인증된 사용자만 호출 가능하지만, 모든 사용자의 영수증을 생성합니다.
+   * 프로덕션에서는 별도의 관리자 권한 체크를 추가하는 것을 권장합니다.
+   */
+  @Post('admin/generate-all/:date')
+  async generateAllForDate(@Param('date') date: string) {
+    this.logger.log(`[Admin] 날짜 ${date}의 전체 영수증 일괄 생성 요청`);
+    return this.receiptSchedulerService.generateReceiptsForDate(date);
   }
 }
