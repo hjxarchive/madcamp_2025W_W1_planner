@@ -12,6 +12,18 @@ export class ReceiptsService {
     private receiptImageService: ReceiptImageService,
   ) {}
 
+  /**
+   * 날짜 문자열(YYYY-MM-DD)을 로컬 시간대로 파싱하여 시작/끝 시각 반환
+   * new Date(dateStr)는 UTC로 파싱되어 시간대 문제가 발생할 수 있으므로 직접 파싱
+   */
+  private parseDateRange(dateStr: string): { date: Date; startOfDay: Date; endOfDay: Date } {
+    const [year, month, day] = dateStr.split('-').map(Number);
+    const date = new Date(year, month - 1, day, 0, 0, 0, 0);
+    const startOfDay = new Date(year, month - 1, day, 0, 0, 0, 0);
+    const endOfDay = new Date(year, month - 1, day, 23, 59, 59, 999);
+    return { date, startOfDay, endOfDay };
+  }
+
   async findAll(userId: string, page = 1, limit = 20) {
     const skip = (page - 1) * limit;
 
@@ -39,8 +51,7 @@ export class ReceiptsService {
   }
 
   async findByDate(userId: string, dateStr: string) {
-    const date = new Date(dateStr);
-    date.setHours(0, 0, 0, 0);
+    const { date } = this.parseDateRange(dateStr);
 
     const receipt = await this.prisma.dailyReceipt.findUnique({
       where: {
@@ -63,13 +74,7 @@ export class ReceiptsService {
   }
 
   async createOrUpdate(userId: string, dto: CreateReceiptDto) {
-    const date = new Date(dto.date);
-    date.setHours(0, 0, 0, 0);
-
-    // 해당 날짜의 통계 계산
-    const startOfDay = new Date(date);
-    const endOfDay = new Date(date);
-    endOfDay.setHours(23, 59, 59, 999);
+    const { date, startOfDay, endOfDay } = this.parseDateRange(dto.date);
 
     // 총 시간 계산
     const timeLogs = await this.prisma.timeLog.findMany({
@@ -128,8 +133,7 @@ export class ReceiptsService {
   }
 
   async delete(userId: string, dateStr: string) {
-    const date = new Date(dateStr);
-    date.setHours(0, 0, 0, 0);
+    const { date } = this.parseDateRange(dateStr);
 
     const receipt = await this.prisma.dailyReceipt.findUnique({
       where: {
@@ -169,9 +173,8 @@ export class ReceiptsService {
     this.logger.log(`[generateImage] 시작: userId=${userId}, dateStr=${dateStr}`);
 
     try {
-      const date = new Date(dateStr);
-      date.setHours(0, 0, 0, 0);
-      this.logger.log(`[generateImage] 날짜 파싱 완료: ${date.toISOString()}`);
+      const { date, startOfDay, endOfDay } = this.parseDateRange(dateStr);
+      this.logger.log(`[generateImage] 날짜 파싱 완료: date=${date.toISOString()}, startOfDay=${startOfDay.toISOString()}, endOfDay=${endOfDay.toISOString()}`);
 
       // 사용자 정보 조회
       const user = await this.prisma.user.findUnique({
@@ -182,11 +185,6 @@ export class ReceiptsService {
       if (!user) {
         throw new NotFoundException('사용자를 찾을 수 없습니다');
       }
-
-    // 해당 날짜의 통계 계산
-    const startOfDay = new Date(date);
-    const endOfDay = new Date(date);
-    endOfDay.setHours(23, 59, 59, 999);
 
     // TimeLog와 연결된 Checklist, Project 정보 함께 조회
     const timeLogs = await this.prisma.timeLog.findMany({
@@ -317,12 +315,7 @@ export class ReceiptsService {
    * 영수증 상세 정보 조회 (이미지 생성용 데이터 포함)
    */
   async getReceiptDetails(userId: string, dateStr: string) {
-    const date = new Date(dateStr);
-    date.setHours(0, 0, 0, 0);
-
-    const startOfDay = new Date(date);
-    const endOfDay = new Date(date);
-    endOfDay.setHours(23, 59, 59, 999);
+    const { date, startOfDay, endOfDay } = this.parseDateRange(dateStr);
 
     // TimeLog 조회
     const timeLogs = await this.prisma.timeLog.findMany({

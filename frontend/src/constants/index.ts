@@ -160,6 +160,7 @@ export const TAB_NAMES = {
   MAIN: '메인',
   REPORT: '보고서',
   ARCHIVE: '아카이브',
+  STUDY: '스터디',
 };
 
 // Task status

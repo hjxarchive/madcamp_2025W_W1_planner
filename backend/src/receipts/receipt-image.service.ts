@@ -161,7 +161,7 @@ export class ReceiptImageService {
           <div style="display: flex; justify-content: space-between; font-size: 14px; padding: 6px 0;">
             <span style="flex: 1; color: #1f2937; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding-right: 8px;">${t.taskName}</span>
             <span style="width: 60px; text-align: center; color: #4b5563; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${t.projectName}</span>
-            <span style="width: 80px; text-align: right; font-family: monospace; color: #111827;">${this.formatTime(t.durationMs)}</span>
+            <span style="width: 80px; text-align: right; font-family: 'Noto Sans Mono', monospace; color: #111827;">${this.formatTime(t.durationMs)}</span>
           </div>
         `,
             )
@@ -184,10 +184,13 @@ export class ReceiptImageService {
 <html>
 <head>
   <meta charset="UTF-8">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700&family=Noto+Sans+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { 
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    body {
+      font-family: 'Noto Sans KR', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
       background-color: #f3f4f6;
       padding: 20px;
     }
@@ -197,7 +200,10 @@ export class ReceiptImageService {
       box-shadow: 0 2px 8px rgba(0,0,0,0.1);
       max-width: 360px;
       margin: 0 auto;
-      font-family: monospace;
+      font-family: 'Noto Sans KR', 'Noto Sans Mono', monospace;
+    }
+    .font-mono {
+      font-family: 'Noto Sans Mono', monospace;
     }
     .dashed-line {
       border-top: 1px dashed #d1d5db;
@@ -257,7 +263,7 @@ export class ReceiptImageService {
     <div style="padding: 8px 24px;">
       <div style="display: flex; justify-content: space-between; font-size: 14px;">
         <span style="color: #4b5563;">합계</span>
-        <span style="font-family: monospace; font-weight: bold; color: #111827;">${this.formatTime(totalTimeMs)}</span>
+        <span style="font-family: 'Noto Sans Mono', monospace; font-weight: bold; color: #111827;">${this.formatTime(totalTimeMs)}</span>
       </div>
     </div>
 
@@ -272,7 +278,7 @@ export class ReceiptImageService {
       </div>
       <div style="display: flex; justify-content: space-between; font-size: 14px; padding: 4px 0;">
         <span style="color: #4b5563;">평균 소요시간</span>
-        <span style="font-family: monospace; color: #111827;">${this.formatTime(Math.floor(totalTimeMs / Math.max(tasks.length, 1)))}</span>
+        <span style="font-family: 'Noto Sans Mono', monospace; color: #111827;">${this.formatTime(Math.floor(totalTimeMs / Math.max(tasks.length, 1)))}</span>
       </div>
     </div>
 
@@ -282,7 +288,7 @@ export class ReceiptImageService {
     <div style="padding: 12px 24px;">
       <div style="display: flex; justify-content: space-between; align-items: center;">
         <span style="font-weight: bold; color: #111827;">총 소요시간</span>
-        <span style="font-size: 24px; font-family: monospace; font-weight: bold; color: #111827;">${this.formatTime(totalTimeMs)}</span>
+        <span style="font-size: 24px; font-family: 'Noto Sans Mono', monospace; font-weight: bold; color: #111827;">${this.formatTime(totalTimeMs)}</span>
       </div>
     </div>
 
@@ -294,7 +300,7 @@ export class ReceiptImageService {
       <div style="display: flex; gap: 1px; height: 48px; align-items: flex-end; padding: 0 16px;">
         ${barcodeHTML}
       </div>
-      <p style="font-family: monospace; font-size: 12px; color: #4b5563; margin-top: 8px; text-align: center; letter-spacing: 2px;">${barcodeCode}</p>
+      <p style="font-family: 'Noto Sans Mono', monospace; font-size: 12px; color: #4b5563; margin-top: 8px; text-align: center; letter-spacing: 2px;">${barcodeCode}</p>
       <div style="display: flex; justify-content: space-between; font-size: 12px; color: #9ca3af; margin-top: 4px; padding: 0 16px;">
         <span>00:00</span>
         <span>06:00</span>
