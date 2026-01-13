@@ -9,25 +9,22 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 async function bootstrap() {
-  // Firebase Admin 초기화 (프로덕션 환경에서만 필수)
-  const isDev = process.env.NODE_ENV !== 'production';
-  
+  // Firebase Admin 초기화
   if (!admin.apps.length) {
-    try {
+    const serviceAccountPath = path.join(process.cwd(), 'firebase-service-account.json');
+
+    if (fs.existsSync(serviceAccountPath)) {
+      const serviceAccount = JSON.parse(fs.readFileSync(serviceAccountPath, 'utf8'));
+      admin.initializeApp({
+        credential: admin.credential.cert(serviceAccount),
+      });
+      console.log('✅ Firebase Admin initialized with service account');
+    } else {
+      console.warn('⚠️ firebase-service-account.json not found');
       admin.initializeApp({
         credential: admin.credential.applicationDefault(),
       });
-      console.log('✅ Firebase Admin initialized');
-    } catch (error) {
-      if (isDev) {
-        console.warn('⚠️ Firebase Admin 초기화 실패 - 개발 모드로 진행');
-        // 개발 모드에서는 Firebase 없이도 동작하도록 더미 앱 초기화
-        admin.initializeApp({
-          projectId: 'momento-dev',
-        });
-      } else {
-        throw error;
-      }
+      console.log('✅ Firebase Admin initialized with default credentials');
     }
   }
 

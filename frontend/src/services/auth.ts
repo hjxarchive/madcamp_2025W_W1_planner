@@ -2,6 +2,7 @@ import {
   GoogleSignin,
   statusCodes,
 } from '@react-native-google-signin/google-signin';
+import auth from '@react-native-firebase/auth';
 import { API_BASE_URL } from '@constants/index';
 import { secureStorage, AuthUser } from './secureStorage';
 import { api } from './api';
@@ -41,11 +42,22 @@ class AuthService {
         throw new Error('Google ID 토큰을 가져올 수 없습니다');
       }
 
-      // Google ID 토큰을 서버에 전송하여 JWT 교환
+      // Google credential로 Firebase에 로그인
+      const googleCredential = auth.GoogleAuthProvider.credential(idToken);
+      await auth().signInWithCredential(googleCredential);
+
+      // Firebase ID 토큰 획득
+      const firebaseIdToken = await auth().currentUser?.getIdToken();
+
+      if (!firebaseIdToken) {
+        throw new Error('Firebase ID 토큰을 가져올 수 없습니다');
+      }
+
+      // Firebase ID 토큰을 서버에 전송하여 JWT 교환
       const response = await fetch(`${API_BASE_URL}/auth/google`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ idToken }),
+        body: JSON.stringify({ idToken: firebaseIdToken }),
       });
 
       if (!response.ok) {
@@ -131,6 +143,13 @@ class AuthService {
       } catch (error) {
         console.warn('[Auth] Logout API call failed:', error);
       }
+    }
+
+    // Firebase 로그아웃
+    try {
+      await auth().signOut();
+    } catch (error) {
+      console.warn('[Auth] Firebase sign out failed:', error);
     }
 
     // Google 로그아웃
