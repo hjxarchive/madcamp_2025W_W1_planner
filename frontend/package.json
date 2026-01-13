@@ -15,6 +15,7 @@
   "dependencies": {
     "@react-native-async-storage/async-storage": "^1.21.0",
     "@react-native-camera-roll/camera-roll": "^7.10.2",
+    "@react-native-google-signin/google-signin": "^16.1.1",
     "@react-native-vector-icons/material-design-icons": "^12.4.0",
     "@react-navigation/bottom-tabs": "^6.5.11",
     "@react-navigation/native": "^6.1.9",
@@ -23,6 +24,7 @@
     "react-native": "^0.73.11",
     "react-native-fs": "^2.20.0",
     "react-native-gesture-handler": "^2.14.1",
+    "react-native-mmkv": "^4.1.1",
     "react-native-safe-area-context": "^4.8.2",
     "react-native-screens": "^3.29.0",
     "react-native-svg": "^14.1.0",
