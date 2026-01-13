@@ -148,18 +148,10 @@ Closes #123
 
 ```nginx
 # /etc/nginx/sites-available/momento
+# 사설 IP 환경에서는 HTTP로 직접 접근 (SSL 불필요)
 server {
     listen 80;
-    server_name api.momento.app;
-    return 301 https://$server_name$request_uri;
-}
-
-server {
-    listen 443 ssl;
-    server_name api.momento.app;
-
-    ssl_certificate /etc/letsencrypt/live/api.momento.app/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/api.momento.app/privkey.pem;
+    server_name _;  # 모든 호스트 허용 (사설 IP 환경)
 
     location / {
         proxy_pass http://localhost:3000;
@@ -173,6 +165,15 @@ server {
         proxy_cache_bypass $http_upgrade;
     }
 }
+
+# 외부 배포 시 SSL 설정 예시 (필요한 경우)
+# server {
+#     listen 443 ssl;
+#     server_name your-domain.com;
+#     ssl_certificate /path/to/cert.pem;
+#     ssl_certificate_key /path/to/key.pem;
+#     ...
+# }
 ```
 
 ### PM2 설정
