@@ -101,7 +101,7 @@ export const FloatingTimer: React.FC<FloatingTimerProps> = ({
 const styles = StyleSheet.create({
   container: {
     position: 'absolute',
-    bottom: 80,
+    bottom: 16,
     left: SPACING.base,
     right: SPACING.base,
     zIndex: 1000,

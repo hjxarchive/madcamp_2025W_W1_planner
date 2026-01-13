@@ -20,6 +20,7 @@ import MaterialDesignIcons from '@react-native-vector-icons/material-design-icon
 const Icon = MaterialDesignIcons;
 import { COLORS, FONT_SIZES, FONT_WEIGHTS, SPACING, BORDER_RADIUS } from '@constants/index';
 import { api } from '@services/api';
+import { useAuth } from '@contexts/AuthContext';
 import type { User } from '../types';
 
 // 선택 가능한 이모지 목록
@@ -43,6 +44,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
   user,
   onUpdateUser,
 }) => {
+  const { logout } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [editedNickname, setEditedNickname] = useState(user?.nickname || '');
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
@@ -134,6 +136,18 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
     setNicknameError(null);
 
     try {
+      // 닉네임이 변경된 경우에만 저장 전 한번 더 중복 확인
+      if (editedNickname.trim() !== user.nickname) {
+        const checkResult = await api.checkNickname(editedNickname.trim());
+        if (checkResult.data && !checkResult.data.available) {
+          setNicknameError(checkResult.data.message);
+          setIsNicknameAvailable(false);
+          Alert.alert('닉네임 중복', '이미 사용 중인 닉네임입니다. 다른 닉네임을 입력해주세요.');
+          setIsSaving(false);
+          return;
+        }
+      }
+
       await api.updateMe({
         nickname: editedNickname.trim(),
         profileEmoji: selectedEmoji,
@@ -189,6 +203,24 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
     setSelectedEmoji(user.emoji || '👤');
     setIsEditing(false);
     setNicknameError(null);
+  };
+
+  const handleLogout = () => {
+    Alert.alert(
+      '로그아웃',
+      '정말 로그아웃 하시겠습니까?',
+      [
+        { text: '취소', style: 'cancel' },
+        {
+          text: '로그아웃',
+          style: 'destructive',
+          onPress: async () => {
+            onClose();
+            await logout();
+          },
+        },
+      ],
+    );
   };
 
   return (
@@ -331,6 +363,15 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                 </>
               )}
             </View>
+
+            {/* Logout Button */}
+            <TouchableOpacity
+              style={styles.logoutButton}
+              onPress={handleLogout}
+            >
+              <Icon name="logout" size={18} color={COLORS.error} />
+              <Text style={styles.logoutButtonText}>로그아웃</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </KeyboardAvoidingView>
@@ -524,6 +565,23 @@ const styles = StyleSheet.create({
   editButtonText: {
     fontSize: FONT_SIZES.sm,
     color: COLORS.gray600,
+  },
+  logoutButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: SPACING.sm,
+    marginTop: SPACING['2xl'],
+    paddingVertical: SPACING.md,
+    paddingHorizontal: SPACING.xl,
+    borderRadius: BORDER_RADIUS.lg,
+    borderWidth: 1,
+    borderColor: COLORS.error,
+  },
+  logoutButtonText: {
+    fontSize: FONT_SIZES.base,
+    fontWeight: FONT_WEIGHTS.medium,
+    color: COLORS.error,
   },
 });
 

@@ -1,9 +1,16 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet, Animated } from 'react-native';
 import MaterialDesignIcons from '@react-native-vector-icons/material-design-icons';
 const Icon = MaterialDesignIcons;
 import { COLORS, FONT_SIZES, SPACING, BORDER_RADIUS, formatTime } from '@constants/index';
 import type { Member, Task, Project } from '../types';
+
+interface MemberTimerInfo {
+  userId: string;
+  userName: string;
+  checklistContent: string;
+  startedAt: string;
+}
 
 interface MemberCardProps {
   member: Member;
@@ -11,6 +18,7 @@ interface MemberCardProps {
   currentTask: Task | null;
   elapsedTime: number;
   isActive: boolean;
+  memberTimerInfo?: MemberTimerInfo;
 }
 
 export const MemberCard: React.FC<MemberCardProps> = ({
@@ -19,9 +27,14 @@ export const MemberCard: React.FC<MemberCardProps> = ({
   currentTask,
   elapsedTime,
   isActive,
+  memberTimerInfo,
 }) => {
   // Animation values
   const pulseAnim = useRef(new Animated.Value(1)).current;
+  const dotPulseAnim = useRef(new Animated.Value(0.4)).current;
+
+  // 팀원의 경과 시간 계산을 위한 state
+  const [teamMemberElapsed, setTeamMemberElapsed] = useState(0);
 
   // Pulse animation for active state
   useEffect(() => {
@@ -41,18 +54,63 @@ export const MemberCard: React.FC<MemberCardProps> = ({
         ])
       );
       pulse.start();
-      return () => pulse.stop();
+
+      // 도트 펄스 애니메이션
+      const dotPulse = Animated.loop(
+        Animated.sequence([
+          Animated.timing(dotPulseAnim, {
+            toValue: 1,
+            duration: 800,
+            useNativeDriver: true,
+          }),
+          Animated.timing(dotPulseAnim, {
+            toValue: 0.4,
+            duration: 800,
+            useNativeDriver: true,
+          }),
+        ])
+      );
+      dotPulse.start();
+
+      return () => {
+        pulse.stop();
+        dotPulse.stop();
+      };
     } else {
       pulseAnim.setValue(1);
+      dotPulseAnim.setValue(0.4);
     }
-  }, [isActive, pulseAnim]);
+  }, [isActive, pulseAnim, dotPulseAnim]);
+
+  // 팀원의 경과 시간 계산 (startedAt 기준)
+  useEffect(() => {
+    if (isActive && memberTimerInfo && !currentTask) {
+      // 팀원의 타이머인 경우 (본인 타이머는 currentTask가 있음)
+      const startTime = new Date(memberTimerInfo.startedAt).getTime();
+
+      const updateElapsed = () => {
+        const now = Date.now();
+        setTeamMemberElapsed(Math.max(0, now - startTime));
+      };
+
+      updateElapsed();
+      const interval = setInterval(updateElapsed, 1000);
+
+      return () => clearInterval(interval);
+    } else {
+      setTeamMemberElapsed(0);
+    }
+  }, [isActive, memberTimerInfo, currentTask]);
 
   // 해당 멤버에게 할당된 Task들의 시간 합계 계산
   const memberTasks = project?.tasks?.filter(t => t.assigneeId === member.id) || [];
-  
-  // 현재 실행 중인 Task가 이 멤버에게 할당되어 있는지 확인
+
+  // 현재 실행 중인 Task가 이 멤버에게 할당되어 있는지 확인 (본인 타이머)
   const isCurrentTaskAssigned = currentTask && currentTask.assigneeId === member.id;
-  
+
+  // 활성 경과 시간 (본인 타이머면 elapsedTime, 팀원 타이머면 teamMemberElapsed)
+  const activeElapsedTime = isCurrentTaskAssigned ? elapsedTime : teamMemberElapsed;
+
   // 멤버의 총 시간 계산 (실시간 반영)
   const memberTimeMs = memberTasks.reduce((sum, task) => {
     let taskDuration = task.durationMs || 0;
@@ -62,15 +120,17 @@ export const MemberCard: React.FC<MemberCardProps> = ({
     }
     return sum + taskDuration;
   }, 0);
-  
+
   // 진행률 계산 (완료된 Task / 전체 Task)
   const completedTasks = memberTasks.filter(t => t.isDone).length;
   const memberProgress = memberTasks.length > 0 ? Math.round((completedTasks / memberTasks.length) * 100) : 0;
-  
-  // 표시 시간 계산
-  const displayTimeMs = isCurrentTaskAssigned 
-    ? memberTimeMs 
-    : (memberTimeMs > 0 ? memberTimeMs : (member.timeMs || 0));
+
+  // 표시 시간 계산 (팀원 타이머 활성 시에도 경과 시간 추가)
+  let displayTimeMs = memberTimeMs > 0 ? memberTimeMs : (member.timeMs || 0);
+  if (isActive && memberTimerInfo && !currentTask) {
+    // 팀원의 활성 타이머인 경우 경과 시간 추가
+    displayTimeMs += teamMemberElapsed;
+  }
 
   return (
     <Animated.View
@@ -106,11 +166,15 @@ export const MemberCard: React.FC<MemberCardProps> = ({
         />
       </View>
       
-      {/* Active indicator */}
+      {/* Active indicator - 3개의 펄스 도트 */}
       {isActive && (
         <View style={styles.activeIndicator}>
-          <View style={styles.activeDot} />
-          <Text style={styles.activeText}>작업 중</Text>
+          <View style={styles.activeDotRow}>
+            <Animated.View style={[styles.activeDot, { opacity: dotPulseAnim }]} />
+            <Animated.View style={[styles.activeDot, styles.activeDotYellow, { opacity: dotPulseAnim }]} />
+            <Animated.View style={[styles.activeDot, styles.activeDotOrangeLight, { opacity: dotPulseAnim }]} />
+          </View>
+          <Text style={styles.activeText}>측정 중</Text>
         </View>
       )}
     </Animated.View>
@@ -186,11 +250,22 @@ const styles = StyleSheet.create({
     marginTop: SPACING.sm,
     gap: 4,
   },
+  activeDotRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+  },
   activeDot: {
     width: 6,
     height: 6,
     borderRadius: 3,
     backgroundColor: '#F97316', // orange-500
+  },
+  activeDotYellow: {
+    backgroundColor: '#FACC15', // yellow-400
+  },
+  activeDotOrangeLight: {
+    backgroundColor: '#FB923C', // orange-400
   },
   activeText: {
     fontSize: FONT_SIZES.xs,

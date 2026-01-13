@@ -138,6 +138,7 @@ const PersonalProjectPage: React.FC<PersonalProjectPageProps> = ({
                   onToggle={() => onToggleTask(task.id)}
                   onDelete={() => onDeleteTask(task.id)}
                   onStartTimer={() => onStartTaskTimer(task)}
+                  onStopTimer={onStopTimer}
                   isTimerRunning={isTimerRunning}
                   currentTaskId={currentTaskId || undefined}
                   currentProjectId={currentProjectId || undefined}
@@ -185,6 +186,13 @@ const PersonalProjectPage: React.FC<PersonalProjectPageProps> = ({
 // ========================
 // Team Project Page
 // ========================
+interface MemberTimerState {
+  userId: string;
+  userName: string;
+  checklistContent: string;
+  startedAt: string;
+}
+
 interface TeamProjectPageProps {
   project: Project;
   onBack: () => void;
@@ -200,6 +208,7 @@ interface TeamProjectPageProps {
   onWriteReport: () => void;
   onStopTimer: () => void;
   currentTask: Task | null;
+  memberTimers: Record<string, MemberTimerState[]>;
 }
 
 const TeamProjectPage: React.FC<TeamProjectPageProps> = ({
@@ -217,50 +226,70 @@ const TeamProjectPage: React.FC<TeamProjectPageProps> = ({
   onWriteReport,
   onStopTimer,
   currentTask,
+  memberTimers,
 }) => {
   const completedTasks = project.tasks.filter(t => t.isDone).length;
-  const progress = project.tasks.length > 0 
-    ? Math.round((completedTasks / project.tasks.length) * 100) 
+  const progress = project.tasks.length > 0
+    ? Math.round((completedTasks / project.tasks.length) * 100)
     : 0;
   const isCompleted = progress === 100;
-  
-  // 이 프로젝트의 현재 실행 중인 Task인지 확인
-  const currentTaskInProject = project.id === currentProjectId && 
+
+  // 이 프로젝트의 현재 실행 중인 Task인지 확인 (본인)
+  const currentTaskInProject = project.id === currentProjectId &&
     project.tasks.find(t => t.id === currentTaskId);
-  const displayTotalTime = currentTaskInProject && isTimerRunning 
-    ? project.totalTimeMs + elapsedTime 
+  const displayTotalTime = currentTaskInProject && isTimerRunning
+    ? project.totalTimeMs + elapsedTime
     : project.totalTimeMs;
-  
-  // Active state
-  const isActive = !!(currentTaskInProject && isTimerRunning);
-  
-  // 현재 실행 중인 Task의 할당자 찾기
-  const activeMemberId = currentTaskInProject ? currentTaskInProject.assigneeId : undefined;
+
+  // 본인의 활성 상태 (본인이 타이머 실행 중)
+  const isMyTimerActive = !!(currentTaskInProject && isTimerRunning);
+
+  // 프로젝트 내 활성 타이머가 있는지 (본인 또는 팀원)
+  const projectMemberTimers = memberTimers[project.id] || [];
+  const hasAnyActiveTimer = isMyTimerActive || projectMemberTimers.length > 0;
+
+  // 현재 실행 중인 Task의 할당자 찾기 (본인 타이머용)
+  const myActiveMemberId = currentTaskInProject ? currentTaskInProject.assigneeId : undefined;
+
+  // 멤버별 활성 상태 확인 함수
+  const isMemberActive = (memberId: string) => {
+    // 본인이 활성화한 타이머인지 확인
+    if (isMyTimerActive && myActiveMemberId === memberId) {
+      return true;
+    }
+    // 팀원이 활성화한 타이머인지 확인
+    return projectMemberTimers.some(t => t.userId === memberId);
+  };
+
+  // 팀원의 타이머 정보 가져오기
+  const getMemberTimerInfo = (memberId: string): MemberTimerState | undefined => {
+    return projectMemberTimers.find(t => t.userId === memberId);
+  };
 
   return (
-    <SafeAreaView 
+    <SafeAreaView
       style={[
-        styles.container, 
-        isActive && styles.containerActiveTeam
-      ]} 
+        styles.container,
+        hasAnyActiveTimer && styles.containerActiveTeam
+      ]}
       edges={['top']}
     >
       {/* Header */}
-      <View style={[styles.header, isActive && styles.headerActiveTeam]}>
+      <View style={[styles.header, hasAnyActiveTimer && styles.headerActiveTeam]}>
         <TouchableOpacity onPress={onBack} style={styles.backButton}>
           <Icon name="chevron-left" size={28} color={COLORS.textSecondary} />
         </TouchableOpacity>
         <View style={styles.headerCenter}>
           <Text style={styles.headerTitle}>{project.title}</Text>
           <View style={styles.headerTimeRow}>
-            {isActive && (
+            {hasAnyActiveTimer && (
               <View style={styles.animatedDots}>
                 <View style={[styles.dot, styles.dotOrange]} />
                 <View style={[styles.dot, styles.dotYellow]} />
                 <View style={[styles.dot, styles.dotOrangeLight]} />
               </View>
             )}
-            <Text style={[styles.headerTime, isActive && styles.headerTimeActiveTeam]}>
+            <Text style={[styles.headerTime, hasAnyActiveTimer && styles.headerTimeActiveTeam]}>
               {formatTime(displayTotalTime)}
             </Text>
           </View>
@@ -298,21 +327,29 @@ const TeamProjectPage: React.FC<TeamProjectPageProps> = ({
 
         {/* Member Cards */}
         <View style={styles.memberCardsContainer}>
-          <ScrollView 
-            horizontal 
+          <ScrollView
+            horizontal
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.memberCardsContent}
           >
-            {project.members?.map(member => (
-              <MemberCard
-                key={member.id}
-                member={member}
-                project={project}
-                currentTask={currentTaskInProject || null}
-                elapsedTime={elapsedTime}
-                isActive={isActive && member.id === activeMemberId}
-              />
-            ))}
+            {project.members?.map(member => {
+              const memberIsActive = isMemberActive(member.id);
+              const memberTimerInfo = getMemberTimerInfo(member.id);
+              // 본인의 활성 타이머인지, 팀원의 활성 타이머인지 확인
+              const isMyActiveTimer = isMyTimerActive && myActiveMemberId === member.id;
+
+              return (
+                <MemberCard
+                  key={member.id}
+                  member={member}
+                  project={project}
+                  currentTask={isMyActiveTimer ? (currentTaskInProject || null) : null}
+                  elapsedTime={isMyActiveTimer ? elapsedTime : 0}
+                  isActive={memberIsActive}
+                  memberTimerInfo={memberTimerInfo}
+                />
+              );
+            })}
           </ScrollView>
         </View>
 
@@ -324,7 +361,7 @@ const TeamProjectPage: React.FC<TeamProjectPageProps> = ({
             </Text>
           </View>
           
-          <View style={[styles.taskList, isActive && styles.taskListActive]}>
+          <View style={[styles.taskList, hasAnyActiveTimer && styles.taskListActive]}>
             {project.tasks.length > 0 ? (
               project.tasks.map(task => (
                 <TaskItem
@@ -333,6 +370,7 @@ const TeamProjectPage: React.FC<TeamProjectPageProps> = ({
                   onToggle={() => onToggleTask(task.id)}
                   onDelete={() => onDeleteTask(task.id)}
                   onStartTimer={() => onStartTaskTimer(task)}
+                  onStopTimer={onStopTimer}
                   isTimerRunning={isTimerRunning}
                   currentTaskId={currentTaskId || undefined}
                   currentProjectId={currentProjectId || undefined}
@@ -559,6 +597,12 @@ export const ProjectDetailScreen: React.FC<ProjectDetailScreenProps> = ({ route 
   const handleDeleteTask = useCallback(async (taskId: string) => {
     if (!project) return;
 
+    // 타이머가 실행 중인 Task인지 확인
+    if (isTimerRunning && currentTaskId === taskId) {
+      Alert.alert('알림', '타이머가 실행 중입니다. 먼저 타이머를 정지해주세요.');
+      return;
+    }
+
     Alert.alert(
       'Task 삭제',
       '이 Task를 삭제하시겠습니까?',
@@ -589,10 +633,16 @@ export const ProjectDetailScreen: React.FC<ProjectDetailScreenProps> = ({ route 
         },
       ]
     );
-  }, [project, loadProject]);
+  }, [project, loadProject, isTimerRunning, currentTaskId]);
 
   const handleDeleteProject = useCallback(() => {
     if (!project) return;
+
+    // 이 프로젝트에서 타이머가 실행 중인지 확인
+    if (isTimerRunning && currentProjectId === project.id) {
+      Alert.alert('알림', '타이머가 실행 중입니다. 먼저 타이머를 정지해주세요.');
+      return;
+    }
 
     Alert.alert(
       '프로젝트 삭제',
@@ -614,7 +664,7 @@ export const ProjectDetailScreen: React.FC<ProjectDetailScreenProps> = ({ route 
         },
       ]
     );
-  }, [project, navigation]);
+  }, [project, navigation, isTimerRunning, currentProjectId]);
 
   const handleWriteReport = useCallback(() => {
     setShowWriteReport(true);
@@ -665,6 +715,7 @@ export const ProjectDetailScreen: React.FC<ProjectDetailScreenProps> = ({ route 
     onWriteReport: handleWriteReport,
     onStopTimer: handleStopTimer,
     currentTask,
+    memberTimers,
   };
 
   return (
@@ -724,7 +775,7 @@ const styles = StyleSheet.create({
     borderBottomColor: COLORS.gray200,
   },
   headerActiveTeam: {
-    borderBottomColor: '#FDBA74', // orange-200
+    borderBottomColor: '#FDBA74', // orange-300
     backgroundColor: '#FFF7ED', // orange-50
   },
   backButton: {
@@ -896,7 +947,7 @@ const styles = StyleSheet.create({
   },
   taskListActive: {
     borderWidth: 2,
-    borderColor: '#FDBA74', // orange-200
+    borderColor: '#FDBA74', // orange-300
     shadowColor: '#F97316',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,

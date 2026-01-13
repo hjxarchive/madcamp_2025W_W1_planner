@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -10,6 +10,7 @@ import {
   Platform,
   ScrollView,
   Dimensions,
+  Alert,
 } from 'react-native';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -35,17 +36,35 @@ export const AddTaskModal: React.FC<AddTaskModalProps> = ({
   const [assigneeId, setAssigneeId] = useState<string | undefined>(undefined);
   const [showMemberSelect, setShowMemberSelect] = useState(false);
 
+  // 개인 프로젝트 여부 (멤버가 1명인 경우)
+  const isPersonalProject = members && members.length === 1;
+  // 팀 프로젝트 여부 (멤버가 2명 이상인 경우)
+  const isTeamProject = members && members.length > 1;
+
+  // 개인 프로젝트의 경우 모달이 열릴 때 자동으로 담당자 지정
+  useEffect(() => {
+    if (isOpen && isPersonalProject && members) {
+      setAssigneeId(members[0].id);
+    }
+  }, [isOpen, isPersonalProject, members]);
+
   const handleSubmit = () => {
     if (!content.trim()) return;
-    
+
+    // 팀 프로젝트의 경우 담당자 필수 확인
+    if (isTeamProject && !assigneeId) {
+      Alert.alert('알림', '담당자를 선택해주세요.');
+      return;
+    }
+
     const assignee = members?.find(m => m.id === assigneeId);
-    
+
     onAdd({
       content: content.trim(),
       assigneeId: assignee?.id,
       assigneeName: assignee?.nickname,
     });
-    
+
     // 초기화
     setContent('');
     setAssigneeId(undefined);
@@ -60,6 +79,9 @@ export const AddTaskModal: React.FC<AddTaskModalProps> = ({
   };
 
   const selectedMember = members?.find(m => m.id === assigneeId);
+
+  // 버튼 비활성화 조건: content가 없거나, 팀 프로젝트인데 담당자가 없는 경우
+  const isSubmitDisabled = !content.trim() || (isTeamProject && !assigneeId);
 
   if (!isOpen) return null;
 
@@ -100,11 +122,11 @@ export const AddTaskModal: React.FC<AddTaskModalProps> = ({
                 />
               </View>
 
-              {/* 담당자 선택 (팀 프로젝트인 경우만) */}
-              {members && members.length > 0 && (
+              {/* 담당자 선택 (팀 프로젝트인 경우만 표시) */}
+              {isTeamProject && members && (
                 <View style={styles.field}>
-                  <Text style={styles.label}>담당자 (선택)</Text>
-                  
+                  <Text style={styles.label}>담당자 *</Text>
+
                   {/* 현재 선택된 담당자 표시 또는 선택 버튼 */}
                   <TouchableOpacity
                     style={styles.memberSelectButton}
@@ -116,7 +138,7 @@ export const AddTaskModal: React.FC<AddTaskModalProps> = ({
                         <Text style={styles.selectedMemberText}>{selectedMember.nickname}</Text>
                       </View>
                     ) : (
-                      <Text style={styles.placeholderText}>담당자 없음</Text>
+                      <Text style={styles.placeholderText}>담당자를 선택하세요</Text>
                     )}
                     <Icon
                       name={showMemberSelect ? 'chevron-up' : 'chevron-down'}
@@ -128,29 +150,7 @@ export const AddTaskModal: React.FC<AddTaskModalProps> = ({
                   {/* 멤버 목록 */}
                   {showMemberSelect && (
                     <View style={styles.memberList}>
-                      {/* 담당자 없음 옵션 */}
-                      <TouchableOpacity
-                        style={[
-                          styles.memberOption,
-                          !assigneeId && styles.memberOptionSelected,
-                        ]}
-                        onPress={() => {
-                          setAssigneeId(undefined);
-                          setShowMemberSelect(false);
-                        }}
-                      >
-                        <Text style={[
-                          styles.memberOptionText,
-                          !assigneeId && styles.memberOptionTextSelected,
-                        ]}>
-                          담당자 없음
-                        </Text>
-                        {!assigneeId && (
-                          <Icon name="check" size={18} color={COLORS.gray900} />
-                        )}
-                      </TouchableOpacity>
-
-                      {/* 멤버 목록 */}
+                      {/* 멤버 목록 (담당자 없음 옵션 제거) */}
                       {members.map(member => (
                         <TouchableOpacity
                           key={member.id}
@@ -189,9 +189,9 @@ export const AddTaskModal: React.FC<AddTaskModalProps> = ({
                 <Text style={styles.cancelButtonText}>취소</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.submitButton, !content.trim() && styles.submitButtonDisabled]}
+                style={[styles.submitButton, isSubmitDisabled && styles.submitButtonDisabled]}
                 onPress={handleSubmit}
-                disabled={!content.trim()}
+                disabled={isSubmitDisabled}
               >
                 <Text style={styles.submitButtonText}>추가</Text>
               </TouchableOpacity>

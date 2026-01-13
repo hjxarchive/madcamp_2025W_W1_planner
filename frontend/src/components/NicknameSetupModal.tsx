@@ -106,6 +106,16 @@ export const NicknameSetupModal: React.FC<NicknameSetupModalProps> = ({
     setNicknameError(null);
 
     try {
+      // 저장 전 한번 더 닉네임 중복 확인
+      const checkResult = await api.checkNickname(nickname.trim());
+      if (checkResult.data && !checkResult.data.available) {
+        setNicknameError(checkResult.data.message);
+        setIsNicknameAvailable(false);
+        Alert.alert('닉네임 중복', '이미 사용 중인 닉네임입니다. 다른 닉네임을 입력해주세요.');
+        setIsSaving(false);
+        return;
+      }
+
       await api.updateMe({
         nickname: nickname.trim(),
         profileEmoji: selectedEmoji,

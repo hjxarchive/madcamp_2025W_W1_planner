@@ -168,15 +168,6 @@ const SimpleCalendar: React.FC<{
       </View>
 
       <View style={calendarStyles.buttonRow}>
-        <TouchableOpacity
-          style={calendarStyles.clearButton}
-          onPress={() => {
-            onSelectDate('');
-            onClose();
-          }}
-        >
-          <Text style={calendarStyles.clearButtonText}>날짜 해제</Text>
-        </TouchableOpacity>
         <TouchableOpacity style={calendarStyles.closeButton} onPress={onClose}>
           <Text style={calendarStyles.closeButtonText}>닫기</Text>
         </TouchableOpacity>
@@ -261,14 +252,6 @@ const calendarStyles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: COLORS.gray200,
   },
-  clearButton: {
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.sm,
-  },
-  clearButtonText: {
-    fontSize: FONT_SIZES.sm,
-    color: COLORS.gray500,
-  },
   closeButton: {
     paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.sm,
@@ -335,6 +318,10 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
   const handleSubmit = async () => {
     if (!title.trim()) {
       Alert.alert('알림', '프로젝트명을 입력해주세요.');
+      return;
+    }
+    if (!dueDate) {
+      Alert.alert('알림', '마감일을 선택해주세요.');
       return;
     }
 
@@ -439,7 +426,7 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({
 
               {/* 마감일 */}
               <View style={styles.field}>
-                <Text style={styles.label}>마감일 (선택)</Text>
+                <Text style={styles.label}>마감일 *</Text>
                 <TouchableOpacity
                   style={styles.dateButton}
                   onPress={() => setShowCalendar(!showCalendar)}
