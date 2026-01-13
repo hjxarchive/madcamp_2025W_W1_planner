@@ -8,7 +8,7 @@ import {
   MessageBody,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
-import * as admin from 'firebase-admin';
+import { JwtService } from '@nestjs/jwt';
 import { UsersService } from '../users/users.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { Logger } from '@nestjs/common';
@@ -68,6 +68,7 @@ export class StudyGateway implements OnGatewayConnection, OnGatewayDisconnect {
   constructor(
     private readonly usersService: UsersService,
     private readonly prisma: PrismaService,
+    private readonly jwtService: JwtService,
   ) {}
 
   async handleConnection(client: AuthenticatedSocket) {
@@ -76,15 +77,27 @@ export class StudyGateway implements OnGatewayConnection, OnGatewayDisconnect {
         client.handshake.auth?.token ||
         client.handshake.headers?.authorization?.replace('Bearer ', '');
 
-      let firebaseUid: string;
+      let userId: string;
 
       // DEV_AUTH_BYPASS=true일 때만 dev-token 허용
       if (isDevAuthBypass() && (!token || token === 'dev-token')) {
-        firebaseUid = DEV_FIREBASE_UID;
+        const devUser = await this.usersService.findByFirebaseUid(DEV_FIREBASE_UID);
+        if (!devUser) {
+          client.emit('study:error', {
+            code: 'USER_NOT_FOUND',
+            message: '개발 사용자를 찾을 수 없습니다',
+          });
+          client.disconnect();
+          return;
+        }
+        userId = devUser.id;
       } else if (token) {
         try {
-          const decodedToken = await admin.auth().verifyIdToken(token);
-          firebaseUid = decodedToken.uid;
+          // JWT 토큰 검증
+          const payload = this.jwtService.verify(token, {
+            secret: process.env.JWT_SECRET || 'momento-jwt-secret-key',
+          });
+          userId = payload.sub;
         } catch (error) {
           client.emit('study:error', {
             code: 'UNAUTHORIZED',
@@ -102,8 +115,8 @@ export class StudyGateway implements OnGatewayConnection, OnGatewayDisconnect {
         return;
       }
 
-      // Firebase UID로 사용자 조회
-      const user = await this.usersService.findByFirebaseUid(firebaseUid);
+      // userId로 사용자 조회
+      const user = await this.usersService.findById(userId);
       if (!user) {
         client.emit('study:error', {
           code: 'USER_NOT_FOUND',
@@ -114,7 +127,7 @@ export class StudyGateway implements OnGatewayConnection, OnGatewayDisconnect {
       }
 
       client.userId = user.id;
-      client.firebaseUid = firebaseUid;
+      client.firebaseUid = user.firebaseUid;
 
       // 사용자별 소켓 저장
       if (!this.userSockets.has(user.id)) {
