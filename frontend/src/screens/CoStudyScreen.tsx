@@ -12,6 +12,7 @@ import MaterialDesignIcons from '@react-native-vector-icons/material-design-icon
 import { COLORS, SPACING, FONT_SIZES, BORDER_RADIUS, FONTS } from '@constants/index';
 import { studySocketService, ParticipantInfo } from '@services/studySocket';
 import api, { User } from '@services/api';
+import { authService } from '@services/auth';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -29,6 +30,7 @@ const CoStudyScreen: React.FC = () => {
   const [isJoining, setIsJoining] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
   const [showLocationPicker, setShowLocationPicker] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   // Load user and locations on mount
   useEffect(() => {
@@ -36,6 +38,7 @@ const CoStudyScreen: React.FC = () => {
   }, []);
 
   const loadUserAndLocations = async () => {
+    setError(null);
     try {
       const [userRes, locRes] = await Promise.all([
         api.getMe(),
@@ -47,8 +50,9 @@ const CoStudyScreen: React.FC = () => {
       if (locRes.data?.data) {
         setLocations(locRes.data.data);
       }
-    } catch (error) {
-      console.error('Failed to load data:', error);
+    } catch (err) {
+      console.error('Failed to load data:', err);
+      setError('데이터를 불러오는데 실패했습니다.');
     } finally {
       setIsLoading(false);
     }
@@ -59,14 +63,20 @@ const CoStudyScreen: React.FC = () => {
     if (!user) return;
 
     const connectSocket = async () => {
+      setError(null);
       try {
-        // In dev mode, use 'dev-token'
-        const token = __DEV__ ? 'dev-token' : 'dev-token'; // TODO: Get actual token from Firebase
+        const token = await authService.getValidAccessToken();
+        if (!token) {
+          console.error('No valid access token available');
+          setError('인증에 실패했습니다. 다시 로그인해주세요.');
+          return;
+        }
         await studySocketService.connect(token);
         setIsConnected(true);
         studySocketService.syncStudy();
-      } catch (error) {
-        console.error('Study socket connection failed:', error);
+      } catch (err) {
+        console.error('Study socket connection failed:', err);
+        setError('서버 연결에 실패했습니다.');
       }
     };
 
@@ -106,9 +116,10 @@ const CoStudyScreen: React.FC = () => {
       }
     });
 
-    studySocketService.onStudyError((error) => {
-      console.error('Study error:', error);
+    studySocketService.onStudyError((err) => {
+      console.error('Study error:', err);
       setIsJoining(false);
+      setError(err.message || '스터디 참가 중 오류가 발생했습니다.');
     });
 
     return () => {
@@ -233,11 +244,34 @@ const CoStudyScreen: React.FC = () => {
     );
   };
 
+  // 다시 시도 핸들러
+  const handleRetry = () => {
+    setIsLoading(true);
+    setError(null);
+    loadUserAndLocations();
+  };
+
   if (isLoading) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={COLORS.primary} />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (error && !isConnected) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.errorContainer}>
+          <MaterialDesignIcons name="alert-circle-outline" size={64} color={COLORS.error} />
+          <Text style={styles.errorTitle}>연결 오류</Text>
+          <Text style={styles.errorMessage}>{error}</Text>
+          <TouchableOpacity style={styles.retryButton} onPress={handleRetry}>
+            <MaterialDesignIcons name="refresh" size={20} color={COLORS.surface} />
+            <Text style={styles.retryButtonText}>다시 시도</Text>
+          </TouchableOpacity>
         </View>
       </SafeAreaView>
     );
@@ -534,6 +568,40 @@ const styles = StyleSheet.create({
   leaveButtonText: {
     fontSize: FONT_SIZES.base,
     color: COLORS.error,
+    fontWeight: '500',
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: SPACING['2xl'],
+  },
+  errorTitle: {
+    fontSize: FONT_SIZES.xl,
+    fontWeight: '600',
+    color: COLORS.textPrimary,
+    marginTop: SPACING.lg,
+    marginBottom: SPACING.sm,
+  },
+  errorMessage: {
+    fontSize: FONT_SIZES.base,
+    color: COLORS.textSecondary,
+    textAlign: 'center',
+    marginBottom: SPACING.xl,
+  },
+  retryButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: SPACING.md,
+    paddingHorizontal: SPACING.xl,
+    backgroundColor: COLORS.primary,
+    borderRadius: BORDER_RADIUS.lg,
+    gap: SPACING.sm,
+  },
+  retryButtonText: {
+    fontSize: FONT_SIZES.base,
+    color: COLORS.surface,
     fontWeight: '500',
   },
 });

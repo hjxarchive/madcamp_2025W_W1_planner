@@ -90,4 +90,25 @@ export class UsersService {
       data: dto,
     });
   }
+
+  async checkNicknameAvailability(firebaseUid: string, nickname: string) {
+    // 현재 사용자 조회
+    const currentUser = await this.findByFirebaseUid(firebaseUid);
+
+    // 자신의 현재 닉네임과 같으면 사용 가능
+    if (currentUser && currentUser.nickname === nickname) {
+      return { available: true, message: '현재 사용 중인 닉네임입니다' };
+    }
+
+    // 다른 사용자가 사용 중인지 확인
+    const existingUser = await this.prisma.user.findUnique({
+      where: { nickname },
+    });
+
+    if (existingUser) {
+      return { available: false, message: '이미 사용 중인 닉네임입니다' };
+    }
+
+    return { available: true, message: '사용 가능한 닉네임입니다' };
+  }
 }

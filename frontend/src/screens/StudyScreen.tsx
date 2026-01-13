@@ -19,6 +19,7 @@ import {
 import RNFS from 'react-native-fs';
 import { CameraRoll } from '@react-native-camera-roll/camera-roll';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import MaterialDesignIcons from '@react-native-vector-icons/material-design-icons';
 const Icon = MaterialDesignIcons;
 import { COLORS, FONT_SIZES, SPACING, BORDER_RADIUS, formatTime } from '@constants/index';
@@ -276,12 +277,7 @@ const MonthlyArchivePage: React.FC<{ onBack: () => void; onSelectDate: (date: Da
   const firstDayOfWeek = new Date(year, month, 1).getDay();
   const firstDayOffset = firstDayOfWeek === 0 ? 6 : firstDayOfWeek - 1;
   
-  const days = Array.from({ length: daysInMonth }, (_, i) => ({
-    day: i + 1,
-    hasData: Math.random() > 0.3,
-    intensity: Math.random(),
-    timeMs: Math.floor(Math.random() * 36000000),
-  }));
+  const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
   
   const today = new Date();
   const isCurrentMonth = today.getFullYear() === year && today.getMonth() === month;
@@ -318,13 +314,12 @@ const MonthlyArchivePage: React.FC<{ onBack: () => void; onSelectDate: (date: Da
             
             <View style={monthlyStyles.calendarGrid}>
               {Array.from({ length: firstDayOffset }).map((_, i) => (<View key={`empty-${i}`} style={monthlyStyles.dayCell} />))}
-              {days.map(({ day, hasData, intensity }) => {
+              {days.map((day) => {
                 const isSelected = selectedDay === day;
                 const isToday = day === todayDate;
                 return (
                   <TouchableOpacity key={day} style={[monthlyStyles.dayCell, isSelected && monthlyStyles.dayCellSelected, isToday && !isSelected && monthlyStyles.dayCellToday]} onPress={() => { setSelectedDay(day); onSelectDate(new Date(year, month, day)); }}>
                     <Text style={[monthlyStyles.dayText, isSelected && monthlyStyles.dayTextSelected, isToday && !isSelected && monthlyStyles.dayTextToday]}>{day}</Text>
-                    {hasData && !isSelected && <View style={[monthlyStyles.activityDot, { opacity: 0.3 + intensity * 0.7 }]} />}
                   </TouchableOpacity>
                 );
               })}
@@ -364,7 +359,6 @@ const monthlyStyles = StyleSheet.create({
   dayText: { fontSize: FONT_SIZES.xs, color: COLORS.gray700 },
   dayTextSelected: { color: '#fff', fontWeight: 'bold' },
   dayTextToday: { color: '#1D4ED8', fontWeight: '500' },
-  activityDot: { width: 4, height: 8, backgroundColor: COLORS.gray400, borderRadius: 2, marginTop: 2 },
   selectedInfo: { alignItems: 'center', paddingVertical: SPACING.xl },
   selectedDate: { fontSize: FONT_SIZES.base, color: COLORS.gray600, marginBottom: SPACING.sm },
   selectedTime: { fontSize: FONT_SIZES['2xl'], fontWeight: 'bold', color: COLORS.gray900 },
@@ -378,7 +372,19 @@ export const StudyScreen: React.FC = () => {
   const [showMonthly, setShowMonthly] = useState(false);
   const [generatingIndex, setGeneratingIndex] = useState<number | null>(null);
   const flatListRef = useRef<FlatList>(null);
-  
+
+  // 탭 포커스 시 오늘 날짜로 스크롤 (현재 주에서 오늘에 해당하는 인덱스)
+  useFocusEffect(
+    useCallback(() => {
+      const today = new Date();
+      const day = today.getDay(); // 0(일) ~ 6(토)
+      // 월요일=0, 화요일=1, ..., 일요일=6
+      const todayIndex = day === 0 ? 6 : day - 1;
+      setCurrentIndex(todayIndex);
+      flatListRef.current?.scrollToIndex({ index: todayIndex, animated: false });
+    }, [])
+  );
+
   /**
    * 주어진 기준일을 포함한 주의 월요일~일요일 날짜 배열 반환
    */
@@ -567,27 +573,47 @@ export const StudyScreen: React.FC = () => {
       setTimeout(() => setIsScrollingForWeekChange(false), 500);
     }
   };
+
+  // 월간 아카이브에서 날짜 선택 시 해당 주차로 이동
+  const [pendingScrollDate, setPendingScrollDate] = useState<Date | null>(null);
+
+  const handleSelectDate = useCallback((selectedDate: Date) => {
+    // 선택된 날짜의 주차로 이동
+    setIsLoading(true);
+    setPendingScrollDate(selectedDate);
+    setCurrentWeekReference(selectedDate);
+    setShowMonthly(false);
+  }, []);
+
+  // 주간 데이터 로드 후 선택된 날짜로 스크롤
+  useEffect(() => {
+    if (pendingScrollDate && weeklyData.length > 0) {
+      const dateStr = formatDateFull(pendingScrollDate);
+      const targetIndex = weeklyData.findIndex(d => d.dateStr === dateStr);
+
+      if (targetIndex >= 0) {
+        setCurrentIndex(targetIndex);
+        setTimeout(() => {
+          flatListRef.current?.scrollToIndex({ index: targetIndex, animated: true });
+        }, 100);
+      }
+      setPendingScrollDate(null);
+    }
+  }, [weeklyData, pendingScrollDate]);
   
   // Android 권한 요청
   const requestStoragePermission = async (): Promise<boolean> => {
     if (Platform.OS !== 'android') return true;
 
     try {
-      // Android 13 이상에서는 READ_MEDIA_IMAGES 권한 필요
+      // Android 13 (API 33) 이상에서는 MediaStore API 사용으로 저장 권한 불필요
       if (Platform.Version >= 33) {
-        const granted = await PermissionsAndroid.request(
-          PermissionsAndroid.PERMISSIONS.READ_MEDIA_IMAGES,
-          {
-            title: '갤러리 접근 권한',
-            message: '영수증 이미지를 갤러리에 저장하려면 접근 권한이 필요합니다.',
-            buttonNeutral: '나중에',
-            buttonNegative: '거부',
-            buttonPositive: '허용',
-          }
-        );
-        return granted === PermissionsAndroid.RESULTS.GRANTED;
+        return true;
+      } else if (Platform.Version >= 29) {
+        // Android 10-12: scoped storage로 권한 불필요
+        return true;
       } else {
-        // Android 12 이하에서는 WRITE_EXTERNAL_STORAGE 권한 필요
+        // Android 9 이하에서는 WRITE_EXTERNAL_STORAGE 권한 필요
         const granted = await PermissionsAndroid.request(
           PermissionsAndroid.PERMISSIONS.WRITE_EXTERNAL_STORAGE,
           {
@@ -602,7 +628,8 @@ export const StudyScreen: React.FC = () => {
       }
     } catch (err) {
       console.error('권한 요청 실패:', err);
-      return false;
+      // 권한 오류 발생 시에도 저장 시도 허용 (MediaStore가 처리)
+      return true;
     }
   };
 
@@ -653,7 +680,7 @@ export const StudyScreen: React.FC = () => {
     }
   }, [weeklyData]);
   
-  if (showMonthly) return <SafeAreaView style={styles.container} edges={['top']}><MonthlyArchivePage onBack={() => setShowMonthly(false)} onSelectDate={() => setShowMonthly(false)} /></SafeAreaView>;
+  if (showMonthly) return <SafeAreaView style={styles.container} edges={['top']}><MonthlyArchivePage onBack={() => setShowMonthly(false)} onSelectDate={handleSelectDate} /></SafeAreaView>;
   
   if (isLoading || weeklyData.length === 0) return <SafeAreaView style={styles.container} edges={['top']}><View style={styles.loading}><ActivityIndicator size="large" color={COLORS.gray900} /><Text style={styles.loadingText}>로딩 중...</Text></View></SafeAreaView>;
   

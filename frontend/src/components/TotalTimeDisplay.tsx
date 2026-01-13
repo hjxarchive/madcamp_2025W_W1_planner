@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet, Animated, Easing, TouchableOpacity } from 'react-native';
 import Svg, { Path, Defs, ClipPath, Circle, G } from 'react-native-svg';
-import { COLORS, FONT_SIZES, FONTS, FONT_WEIGHTS, SPACING, formatTime } from '@constants/index';
+import { COLORS, FONT_SIZES, FONTS, SPACING, formatTime } from '@constants/index';
 
 interface TotalTimeDisplayProps {
   timeMs: number;
@@ -224,15 +224,16 @@ const styles = StyleSheet.create({
   },
   timeText: {
     fontSize: 30,
-    fontWeight: FONT_WEIGHTS.bold,
     color: COLORS.gray900,
-    fontFamily: FONTS.mono,
+    fontFamily: FONTS.monoBold,
+    letterSpacing: 0.5,
   },
-  timeText: {
-      fontSize: 30,
-      color: COLORS.gray900,
-      fontFamily: FONTS.monoBold, // ✅ medium과 동일 glyph
-      letterSpacing: 0.5,           // bold 느낌 보강
+  taskText: {
+    fontSize: FONT_SIZES.xs,
+    color: COLORS.textSecondary,
+    marginTop: SPACING.xs,
+    maxWidth: 140,
+    textAlign: 'center',
   },
   statusContainer: {
     flexDirection: 'row',

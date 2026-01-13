@@ -98,6 +98,7 @@ export interface CompletedTask {
 export interface TodaySummaryResponse {
   date: string;
   totalMinutes: number;
+  totalSeconds?: number; // 초 단위 정밀도
   completedTasksCount: number;
   projects: {
     projectId: string;
@@ -251,6 +252,11 @@ class ApiService {
   /** 닉네임으로 사용자 검색 (멤버 초대용) */
   async searchUserByNickname(nickname: string) {
     return this.get<User>(`/users/search?nickname=${encodeURIComponent(nickname)}`);
+  }
+
+  /** 닉네임 사용 가능 여부 확인 */
+  async checkNickname(nickname: string) {
+    return this.get<{ available: boolean; message: string }>(`/users/check-nickname?nickname=${encodeURIComponent(nickname)}`);
   }
 
   // ============ Projects API ============

@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,7 @@ import {
   Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import MaterialDesignIcons from '@react-native-vector-icons/material-design-icons';
 const Icon = MaterialDesignIcons;
 import { COLORS, FONT_SIZES, FONT_WEIGHTS, FONTS, SPACING, BORDER_RADIUS, formatTime, formatTimeShort } from '@constants/index';
@@ -229,6 +230,14 @@ export const PastScreen: React.FC = () => {
   const [isLoadingDetail, setIsLoadingDetail] = useState(false);
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
+  const scrollViewRef = useRef<ScrollView>(null);
+
+  // 탭 포커스 시 스크롤 맨 위로 이동
+  useFocusEffect(
+    useCallback(() => {
+      scrollViewRef.current?.scrollTo({ y: 0, animated: false });
+    }, [])
+  );
 
   // Load past projects from API
   const loadPastProjects = useCallback(async () => {
@@ -320,6 +329,7 @@ export const PastScreen: React.FC = () => {
       </View>
 
       <ScrollView
+        ref={scrollViewRef}
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         refreshControl={

@@ -11,3 +11,4 @@ export { ProfileModal } from './ProfileModal';
 export { FocusModeModal } from './FocusModeModal';
 export { CreateProjectModal } from './CreateProjectModal';
 export { AddTaskModal } from './AddTaskModal';
+export { NicknameSetupModal } from './NicknameSetupModal';

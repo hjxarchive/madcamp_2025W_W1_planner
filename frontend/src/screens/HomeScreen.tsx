@@ -10,6 +10,8 @@ import {
   Alert,
   AppState,
   AppStateStatus,
+  Image,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
@@ -46,13 +48,23 @@ const sampleProjects: Project[] = [
 ];
 
 // 오늘의 Task 가져오기 (모든 프로젝트에서)
-const getTodayTasks = (projects: Project[]): Task[] => {
+// 팀 프로젝트의 경우 나에게 할당된 Task만 표시
+const getTodayTasks = (projects: Project[], currentUserId: string | null): Task[] => {
   const tasks: Task[] = [];
   projects.forEach(project => {
     if (!project.report) {
+      const isTeamProject = project.memberCount > 1;
       project.tasks.forEach(task => {
         if (!task.isDone) {
-          tasks.push({ ...task, projectTitle: project.title, projectId: project.id });
+          // 팀 프로젝트: 나에게 할당된 Task만 표시 (assigneeId가 null이면 미할당이므로 제외)
+          // 개인 프로젝트: 모든 Task 표시
+          if (isTeamProject) {
+            if (task.assigneeId === currentUserId) {
+              tasks.push({ ...task, projectTitle: project.title, projectId: project.id });
+            }
+          } else {
+            tasks.push({ ...task, projectTitle: project.title, projectId: project.id });
+          }
         }
       });
     }
@@ -75,7 +87,13 @@ interface ReceiptData {
   tasks: { taskName: string; projectName: string; durationMs: number }[];
   totalTimeMs: number;
   timeSlots: boolean[];
+  imageUrl: string | null;
 }
+
+// 서버 Base URL (이미지 URL 생성용)
+const getImageBaseUrl = () => {
+  return 'http://172.10.5.61'; // 서버 IP
+};
 
 export const HomeScreen: React.FC = () => {
   const navigation = useNavigation<HomeNavigationProp>();
@@ -115,7 +133,7 @@ export const HomeScreen: React.FC = () => {
   const projectTotalTimeMs = projects.reduce((sum, p) => sum + p.totalTimeMs, 0);
 
   // 오늘의 Task
-  const todayTasks = getTodayTasks(projects);
+  const todayTasks = getTodayTasks(projects, user?.id ?? null);
 
   const loadData = useCallback(async () => {
     try {
@@ -128,9 +146,12 @@ export const HomeScreen: React.FC = () => {
       // 오늘의 총 시간 로드
       const todaySummaryRes = await api.getTodaySummary();
       if (todaySummaryRes.data) {
-        // totalMinutes를 밀리초로 변환
-        setTodayTotalTimeMs(todaySummaryRes.data.totalMinutes * 60 * 1000);
-        console.log(`[오늘 총 시간] ${todaySummaryRes.data.date}: ${todaySummaryRes.data.totalMinutes}분`);
+        // totalSeconds를 밀리초로 변환 (없으면 totalMinutes 사용)
+        const totalMs = todaySummaryRes.data.totalSeconds !== undefined
+          ? todaySummaryRes.data.totalSeconds * 1000
+          : todaySummaryRes.data.totalMinutes * 60 * 1000;
+        setTodayTotalTimeMs(totalMs);
+        console.log(`[오늘 총 시간] ${todaySummaryRes.data.date}: ${Math.floor(totalMs / 1000)}초`);
       } else {
         setTodayTotalTimeMs(0);
       }
@@ -171,6 +192,9 @@ export const HomeScreen: React.FC = () => {
     }
     prevTimerRunningRef.current = isTimerRunning;
   }, [isTimerRunning, loadData]);
+
+  // ScrollView ref for scroll to top on focus
+  const scrollViewRef = useRef<ScrollView>(null);
 
   // 날짜 변경 감지용 refs
   const midnightTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -224,6 +248,9 @@ export const HomeScreen: React.FC = () => {
   // 화면 포커스 시 날짜 확인 후 데이터 로드
   useFocusEffect(
     useCallback(() => {
+      // 탭 포커스 시 스크롤 맨 위로 이동
+      scrollViewRef.current?.scrollTo({ y: 0, animated: false });
+
       const init = async () => {
         const dateChanged = await checkAndHandleDateChange();
         if (!dateChanged) {
@@ -417,6 +444,7 @@ export const HomeScreen: React.FC = () => {
           tasks: res.data.tasks,
           totalTimeMs: res.data.totalTimeMs,
           timeSlots: res.data.timeSlots,
+          imageUrl: res.data.imageUrl,
         });
         setShowReceiptModal(true);
       }
@@ -434,6 +462,7 @@ export const HomeScreen: React.FC = () => {
         tasks: localTasks,
         totalTimeMs: todayTotalTimeMs + (isTimerRunning ? elapsedTime : 0),
         timeSlots: new Array(144).fill(false),
+        imageUrl: null,
       });
       setShowReceiptModal(true);
     } finally {
@@ -441,16 +470,25 @@ export const HomeScreen: React.FC = () => {
     }
   };
 
-  // 영수증 이미지 저장 (생성 요청)
-  const handleSaveReceiptImage = async () => {
+  // 영수증 이미지 생성 상태
+  const [isGeneratingReceipt, setIsGeneratingReceipt] = useState(false);
+
+  // 영수증 이미지 생성
+  const handleGenerateReceiptImage = async () => {
+    setIsGeneratingReceipt(true);
     try {
       const todayStr = getTodayDateString(); // 로컬 타임존 기준
-      await api.generateReceiptImage(todayStr);
-      Alert.alert('완료', '영수증이 저장되었습니다!');
-      setShowReceiptModal(false);
+      const response = await api.generateReceiptImage(todayStr);
+      if (response.data?.imageUrl) {
+        // 이미지 URL 업데이트
+        setReceiptData(prev => prev ? { ...prev, imageUrl: response.data!.imageUrl } : null);
+        Alert.alert('완료', '영수증 이미지가 생성되었습니다!');
+      }
     } catch (error) {
-      console.error('영수증 저장 실패:', error);
-      Alert.alert('오류', '영수증 저장에 실패했습니다.');
+      console.error('영수증 생성 실패:', error);
+      Alert.alert('오류', '영수증 생성에 실패했습니다.');
+    } finally {
+      setIsGeneratingReceipt(false);
     }
   };
 
@@ -463,6 +501,7 @@ export const HomeScreen: React.FC = () => {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <ScrollView
+        ref={scrollViewRef}
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         refreshControl={
@@ -623,31 +662,61 @@ export const HomeScreen: React.FC = () => {
               </TouchableOpacity>
             </View>
 
-            <ScrollView style={styles.receiptScrollView}>
+            <ScrollView style={styles.receiptScrollView} contentContainerStyle={styles.receiptScrollContent}>
               {receiptData && (
-                <ArchiveReceipt
-                  date={receiptData.date}
-                  projectTitle="오늘의 기록"
-                  projectColor={COLORS.primary}
-                  totalTime={formatTime(receiptData.totalTimeMs)}
-                  tasks={receiptData.tasks.map((task, index) => ({
-                    id: `task-${index}`,
-                    title: task.taskName,
-                    duration: Math.floor(task.durationMs / 1000),
-                    projectColor: COLORS.primary,
-                  }))}
-                />
+                isGeneratingReceipt ? (
+                  // 생성 중
+                  <View style={styles.receiptLoadingContainer}>
+                    <ActivityIndicator size="large" color={COLORS.gray900} />
+                    <Text style={styles.receiptLoadingText}>영수증 생성 중...</Text>
+                  </View>
+                ) : receiptData.imageUrl ? (
+                  // 서버에서 생성된 이미지 표시
+                  <Image
+                    source={{ uri: `${getImageBaseUrl()}${receiptData.imageUrl}` }}
+                    style={styles.receiptImage}
+                    resizeMode="contain"
+                  />
+                ) : (
+                  // 이미지가 없으면 ArchiveReceipt 컴포넌트 표시
+                  <ArchiveReceipt
+                    date={receiptData.date}
+                    projectTitle="오늘의 기록"
+                    projectColor={COLORS.primary}
+                    totalTime={formatTime(receiptData.totalTimeMs)}
+                    tasks={receiptData.tasks.map((task, index) => ({
+                      id: `task-${index}`,
+                      title: task.taskName,
+                      duration: Math.floor(task.durationMs / 1000),
+                      projectColor: COLORS.primary,
+                    }))}
+                  />
+                )
               )}
             </ScrollView>
 
             <View style={styles.receiptModalFooter}>
-              <TouchableOpacity
-                style={styles.saveReceiptButton}
-                onPress={handleSaveReceiptImage}
-              >
-                <Icon name="download" size={20} color={COLORS.surface} />
-                <Text style={styles.saveReceiptButtonText}>영수증 저장</Text>
-              </TouchableOpacity>
+              {receiptData?.imageUrl ? (
+                // 이미지가 있으면 새로고침 버튼
+                <TouchableOpacity
+                  style={styles.saveReceiptButton}
+                  onPress={handleGenerateReceiptImage}
+                  disabled={isGeneratingReceipt}
+                >
+                  <Icon name="refresh" size={20} color={COLORS.surface} />
+                  <Text style={styles.saveReceiptButtonText}>영수증 새로고침</Text>
+                </TouchableOpacity>
+              ) : (
+                // 이미지가 없으면 생성 버튼
+                <TouchableOpacity
+                  style={styles.saveReceiptButton}
+                  onPress={handleGenerateReceiptImage}
+                  disabled={isGeneratingReceipt || receiptData?.totalTimeMs === 0}
+                >
+                  <Icon name="image-plus" size={20} color={COLORS.surface} />
+                  <Text style={styles.saveReceiptButtonText}>영수증 이미지 생성</Text>
+                </TouchableOpacity>
+              )}
             </View>
           </View>
         </View>
@@ -801,6 +870,27 @@ const styles = StyleSheet.create({
   },
   receiptScrollView: {
     maxHeight: 500,
+  },
+  receiptScrollContent: {
+    alignItems: 'center',
+    paddingVertical: SPACING.md,
+  },
+  receiptImage: {
+    width: '100%',
+    height: 600,
+    borderRadius: BORDER_RADIUS.md,
+  },
+  receiptLoadingContainer: {
+    flex: 1,
+    minHeight: 400,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: SPACING.xl,
+  },
+  receiptLoadingText: {
+    marginTop: SPACING.md,
+    fontSize: FONT_SIZES.base,
+    color: COLORS.gray600,
   },
   receiptModalFooter: {
     padding: SPACING.base,

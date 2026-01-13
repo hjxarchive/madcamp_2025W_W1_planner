@@ -171,17 +171,18 @@ export class TimeLogsService {
       projectMap.get(projectId)!.completedTasksCount += 1;
     });
 
-    const totalMinutes = timeLogs.reduce((sum, log) => {
+    // 초 단위 정밀도로 총 시간 계산
+    const totalMs = timeLogs.reduce((sum, log) => {
       if (!log.endedAt) return sum;
-      return (
-        sum +
-        Math.floor((log.endedAt.getTime() - log.startedAt.getTime()) / 60000)
-      );
+      return sum + (log.endedAt.getTime() - log.startedAt.getTime());
     }, 0);
+    const totalSeconds = Math.floor(totalMs / 1000);
+    const totalMinutes = Math.floor(totalSeconds / 60);
 
     return {
       date: today.toISOString().split('T')[0],
       totalMinutes,
+      totalSeconds, // 초 단위 정밀도
       completedTasksCount: completedTasks.length,
       projects: Array.from(projectMap.entries()).map(([projectId, data]) => ({
         projectId,

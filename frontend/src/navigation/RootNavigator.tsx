@@ -4,6 +4,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { BottomTabNavigator } from './BottomTabNavigator';
 import { ProjectDetailScreen } from '@screens/ProjectDetailScreen';
 import { LoginScreen } from '@screens/LoginScreen';
+import { NicknameSetupModal } from '@components/NicknameSetupModal';
 import { COLORS } from '@constants/index';
 import { useAuth } from '@contexts/AuthContext';
 
@@ -24,7 +25,14 @@ export type RootStackParamList = {
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export const RootNavigator: React.FC = () => {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, isNewUser, completeNewUserSetup, updateUser } = useAuth();
+
+  const handleNicknameSetupComplete = (nickname: string, emoji: string) => {
+    // Update user info in context
+    updateUser({ nickname, profileEmoji: emoji });
+    // Mark setup as complete
+    completeNewUserSetup();
+  };
 
   if (isLoading) {
     return (
@@ -41,21 +49,29 @@ export const RootNavigator: React.FC = () => {
   }
 
   return (
-    <Stack.Navigator
-      screenOptions={{
-        headerShown: false,
-        contentStyle: { backgroundColor: COLORS.background },
-        animation: 'slide_from_right',
-      }}>
-      {isAuthenticated ? (
-        <>
-          <Stack.Screen name="MainTabs" component={BottomTabNavigator} />
-          <Stack.Screen name="ProjectDetail" component={ProjectDetailScreen} />
-        </>
-      ) : (
-        <Stack.Screen name="Login" component={LoginScreen} />
-      )}
-    </Stack.Navigator>
+    <>
+      <Stack.Navigator
+        screenOptions={{
+          headerShown: false,
+          contentStyle: { backgroundColor: COLORS.background },
+          animation: 'slide_from_right',
+        }}>
+        {isAuthenticated ? (
+          <>
+            <Stack.Screen name="MainTabs" component={BottomTabNavigator} />
+            <Stack.Screen name="ProjectDetail" component={ProjectDetailScreen} />
+          </>
+        ) : (
+          <Stack.Screen name="Login" component={LoginScreen} />
+        )}
+      </Stack.Navigator>
+
+      {/* Nickname Setup Modal for new users */}
+      <NicknameSetupModal
+        isOpen={isAuthenticated && isNewUser}
+        onComplete={handleNicknameSetupComplete}
+      />
+    </>
   );
 };
 

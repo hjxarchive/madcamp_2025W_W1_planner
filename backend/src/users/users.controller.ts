@@ -55,4 +55,16 @@ export class UsersController {
     }
     return this.usersService.findByNickname(nickname);
   }
+
+  @Get('check-nickname')
+  @UseGuards(JwtAuthGuard)
+  async checkNickname(
+    @CurrentUser() user: FirebaseUser,
+    @Query('nickname') nickname: string,
+  ) {
+    if (!nickname) {
+      return { available: false, message: '닉네임을 입력해주세요' };
+    }
+    return this.usersService.checkNicknameAvailability(user.firebaseUid, nickname);
+  }
 }

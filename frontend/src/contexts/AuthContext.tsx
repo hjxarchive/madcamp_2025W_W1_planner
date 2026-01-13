@@ -14,9 +14,11 @@ interface AuthContextType {
   user: AuthUser | null;
   isLoading: boolean;
   isAuthenticated: boolean;
+  isNewUser: boolean;
   signInWithGoogle: () => Promise<void>;
   logout: () => Promise<void>;
   updateUser: (user: Partial<AuthUser>) => void;
+  completeNewUserSetup: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -28,6 +30,7 @@ interface AuthProviderProps {
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isNewUser, setIsNewUser] = useState(false);
 
   // 앱 시작 시 인증 상태 복원
   useEffect(() => {
@@ -69,8 +72,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         console.warn('[AuthContext] WebSocket connection failed:', error);
       }
 
+      // 새로운 사용자인 경우 닉네임 설정 모달 표시를 위해 상태 설정
       if (result.isNewUser) {
-        Alert.alert('환영합니다!', 'Momento에 오신 것을 환영합니다.');
+        setIsNewUser(true);
       }
     } catch (error: any) {
       Alert.alert('로그인 실패', error.message || '다시 시도해주세요.');
@@ -99,15 +103,22 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setUser(prev => (prev ? { ...prev, ...updates } : null));
   }, []);
 
+  // 새 사용자 설정 완료 (닉네임 설정 후 호출)
+  const completeNewUserSetup = useCallback(() => {
+    setIsNewUser(false);
+  }, []);
+
   return (
     <AuthContext.Provider
       value={{
         user,
         isLoading,
         isAuthenticated: !!user,
+        isNewUser,
         signInWithGoogle,
         logout,
         updateUser,
+        completeNewUserSetup,
       }}>
       {children}
     </AuthContext.Provider>
