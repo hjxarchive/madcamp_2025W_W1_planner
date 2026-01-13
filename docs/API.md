@@ -22,11 +22,13 @@ Authorization: Bearer <firebase-id-token>
 ## 📌 Users
 
 ### 내 정보 조회
+
 ```http
 GET /api/users/me
 ```
 
 **Response**
+
 ```json
 {
   "id": "uuid",
@@ -39,11 +41,13 @@ GET /api/users/me
 ```
 
 ### 회원가입 (최초 로그인 시)
+
 ```http
 POST /api/users
 ```
 
 **Request Body**
+
 ```json
 {
   "nickname": "사용자닉네임",
@@ -55,6 +59,7 @@ POST /api/users
 > 이 방식은 토큰 위조를 방지하여 더 안전합니다.
 
 **Response**
+
 ```json
 {
   "id": "uuid",
@@ -67,11 +72,13 @@ POST /api/users
 ```
 
 ### 내 정보 수정
+
 ```http
 PATCH /api/users/me
 ```
 
 **Request Body**
+
 ```json
 {
   "nickname": "새닉네임",
@@ -80,6 +87,7 @@ PATCH /api/users/me
 ```
 
 ### 닉네임으로 사용자 검색 (선택사항)
+
 ```http
 GET /api/users/search?nickname=검색할닉네임
 ```
@@ -88,6 +96,7 @@ GET /api/users/search?nickname=검색할닉네임
 > 프로젝트 생성 시 멤버 추가는 `memberNicknames`로 직접 전달하면 되므로, 이 API는 필수가 아닙니다.
 
 **Response (200 OK)**
+
 ```json
 {
   "id": "uuid",
@@ -97,6 +106,7 @@ GET /api/users/search?nickname=검색할닉네임
 ```
 
 **Response (404 Not Found)** - 사용자 없음
+
 ```json
 {
   "statusCode": 404,
@@ -111,31 +121,36 @@ GET /api/users/search?nickname=검색할닉네임
 
 ### 프로젝트 상태 (status)
 
-| 상태 | 설명 | 조건 |
-|------|------|------|
-| `ACTIVE` | 진행 중 | 체크리스트 미완료 |
+| 상태               | 설명      | 조건                       |
+| ------------------ | --------- | -------------------------- |
+| `ACTIVE`         | 진행 중   | 체크리스트 미완료          |
 | `PENDING_REVIEW` | 평가 대기 | 체크리스트 완료, 평점 없음 |
-| `COMPLETED` | 완료 | 평점 있음 |
+| `COMPLETED`      | 완료      | 평점 있음                  |
 
 ### 프로젝트 목록 조회
 
 #### 진행 중인 프로젝트 (ACTIVE + PENDING_REVIEW)
+
 ```http
 GET /api/projects/current
 ```
+
 - `status`가 `ACTIVE` 또는 `PENDING_REVIEW`인 프로젝트
 - 개인/협업 구분 없이 모두 반환
 - 프론트엔드에서 `memberCount`로 필터링 가능 (1명: 개인, 2명 이상: 협업)
 - 프론트엔드에서 `status`로 평가 대기 프로젝트 구분 가능
 
 #### 완료된 프로젝트 (보고서 탭)
+
 ```http
 GET /api/projects/past
 ```
+
 - `status`가 `COMPLETED`인 프로젝트만 반환
 - 평점이 있는 프로젝트
 
 **Response**
+
 ```json
 {
   "data": [
@@ -164,11 +179,13 @@ GET /api/projects/past
 ```
 
 ### 프로젝트 생성
+
 ```http
 POST /api/projects
 ```
 
 **Request Body**
+
 ```json
 {
   "title": "프로젝트 제목",
@@ -183,6 +200,7 @@ POST /api/projects
 > ℹ️ **협업 프로젝트**: `memberNicknames`에 함께할 사용자 닉네임 배열 전달
 
 **Response (201 Created)**
+
 ```json
 {
   "id": "uuid",
@@ -201,6 +219,7 @@ POST /api/projects
 ```
 
 **Error Response (404 Not Found)** - 존재하지 않는 닉네임
+
 ```json
 {
   "statusCode": 404,
@@ -210,11 +229,13 @@ POST /api/projects
 ```
 
 ### 프로젝트 상세 조회
+
 ```http
 GET /api/projects/:id
 ```
 
 **Response**
+
 ```json
 {
   "id": "uuid",
@@ -248,11 +269,13 @@ GET /api/projects/:id
 ```
 
 ### 프로젝트 수정
+
 ```http
 PATCH /api/projects/:id
 ```
 
 **Request Body**
+
 ```json
 {
   "title": "수정된 제목",
@@ -264,16 +287,19 @@ PATCH /api/projects/:id
 ```
 
 ### 프로젝트 완료 (보고서 작성)
+
 ```http
 POST /api/projects/:id/complete
 ```
 
 프로젝트를 완료 처리하고 보고서(평점)를 저장합니다.
+
 - 모든 체크리스트를 완료 상태로 변경
 - 평점(rating) 저장
 - 프로젝트가 `/api/projects/past`에서 조회됨
 
 **Request Body**
+
 ```json
 {
   "rating": 4
@@ -283,6 +309,7 @@ POST /api/projects/:id/complete
 > ℹ️ `rating`은 1~5 사이의 정수 (별점)
 
 **Response (200 OK)**
+
 ```json
 {
   "id": "uuid",
@@ -295,6 +322,7 @@ POST /api/projects/:id/complete
 ```
 
 **Error Response (400 Bad Request)** - 이미 완료된 프로젝트
+
 ```json
 {
   "statusCode": 400,
@@ -304,6 +332,7 @@ POST /api/projects/:id/complete
 ```
 
 ### 프로젝트 삭제
+
 ```http
 DELETE /api/projects/:id
 ```
@@ -313,11 +342,13 @@ DELETE /api/projects/:id
 ## 📌 Project Members
 
 ### 멤버 추가 (닉네임으로 검색 후 초대)
+
 ```http
 POST /api/projects/:projectId/members
 ```
 
 **Request Body**
+
 ```json
 {
   "userId": "user-uuid",
@@ -328,6 +359,7 @@ POST /api/projects/:projectId/members
 > ℹ️ 먼저 `GET /api/users/search?nickname=...`으로 사용자를 검색한 후, 해당 userId로 멤버를 추가합니다.
 
 ### 멤버 삭제
+
 ```http
 DELETE /api/projects/:projectId/members/:userId
 ```
@@ -337,11 +369,13 @@ DELETE /api/projects/:projectId/members/:userId
 ## 📌 Checklists
 
 ### 체크리스트 추가
+
 ```http
 POST /api/projects/:projectId/checklists
 ```
 
 **Request Body**
+
 ```json
 {
   "content": "체크리스트 항목 내용",
@@ -351,11 +385,13 @@ POST /api/projects/:projectId/checklists
 ```
 
 ### 체크리스트 수정
+
 ```http
 PATCH /api/checklists/:id
 ```
 
 **Request Body**
+
 ```json
 {
   "content": "수정된 내용",
@@ -366,6 +402,7 @@ PATCH /api/checklists/:id
 ```
 
 ### 체크리스트 삭제
+
 ```http
 DELETE /api/checklists/:id
 ```
@@ -375,11 +412,13 @@ DELETE /api/checklists/:id
 ## 📌 Time Logs
 
 ### 타이머 시작
+
 ```http
 POST /api/checklists/:checklistId/time-logs/start
 ```
 
 **Response**
+
 ```json
 {
   "id": "uuid",
@@ -391,11 +430,13 @@ POST /api/checklists/:checklistId/time-logs/start
 ```
 
 ### 타이머 정지
+
 ```http
 POST /api/time-logs/:id/stop
 ```
 
 **Response**
+
 ```json
 {
   "id": "uuid",
@@ -408,6 +449,7 @@ POST /api/time-logs/:id/stop
 ```
 
 ### 오늘 활동 요약 조회 (일일 영수증용)
+
 ```http
 GET /api/time-logs/today
 ```
@@ -415,6 +457,7 @@ GET /api/time-logs/today
 오늘의 모든 활동 기록을 조회합니다. 메인 탭 표시 및 일일 영수증 생성에 사용됩니다.
 
 **Response**
+
 ```json
 {
   "date": "2025-01-10",
@@ -470,6 +513,7 @@ WebSocket URL: ws://<SERVER_IP>/timer
 ```
 
 **연결 시 인증**:
+
 ```javascript
 const socket = io('wss://your-domain.com/timer', {
   auth: { token: '<firebase-id-token>' }
@@ -481,27 +525,33 @@ const socket = io('wss://your-domain.com/timer', {
 ### Client → Server 이벤트
 
 #### `timer:start` - 타이머 시작
+
 ```json
 { "checklistId": "checklist-uuid" }
 ```
 
 #### `timer:stop` - 타이머 정지
+
 ```json
 { "timeLogId": "timelog-uuid" }
 ```
 
 #### `timer:sync` - 현재 타이머 상태 요청
+
 ```json
 {}
 ```
+
 > 앱 시작 시 또는 재연결 후 호출하여 활성 타이머 상태를 동기화합니다.
 
 #### `room:join` - 프로젝트 룸 참가 (팀 타이머 알림 수신용)
+
 ```json
 { "projectId": "project-uuid" }
 ```
 
 #### `room:leave` - 프로젝트 룸 퇴장
+
 ```json
 { "projectId": "project-uuid" }
 ```
@@ -509,6 +559,7 @@ const socket = io('wss://your-domain.com/timer', {
 ### Server → Client 이벤트
 
 #### `timer:started` - 타이머 시작됨
+
 ```json
 {
   "timeLog": {
@@ -529,6 +580,7 @@ const socket = io('wss://your-domain.com/timer', {
 ```
 
 #### `timer:stopped` - 타이머 정지됨
+
 ```json
 {
   "timeLog": {
@@ -543,6 +595,7 @@ const socket = io('wss://your-domain.com/timer', {
 ```
 
 #### `timer:active` - 활성 타이머 정보 (sync 응답)
+
 ```json
 {
   "timeLog": {
@@ -564,11 +617,13 @@ const socket = io('wss://your-domain.com/timer', {
 ```
 
 #### `timer:none` - 활성 타이머 없음 (sync 응답)
+
 ```json
 {}
 ```
 
 #### `timer:tick` - 경과 시간 동기화 (30초마다 서버 푸시)
+
 ```json
 {
   "elapsedMs": 5430000,
@@ -577,6 +632,7 @@ const socket = io('wss://your-domain.com/timer', {
 ```
 
 #### `timer:member-started` - 팀원이 타이머 시작함
+
 ```json
 {
   "userId": "user-uuid",
@@ -585,9 +641,11 @@ const socket = io('wss://your-domain.com/timer', {
   "projectId": "project-uuid"
 }
 ```
+
 > 같은 프로젝트 룸에 참가한 사용자에게만 전송됩니다.
 
 #### `timer:member-stopped` - 팀원이 타이머 정지함
+
 ```json
 {
   "userId": "user-uuid",
@@ -598,6 +656,7 @@ const socket = io('wss://your-domain.com/timer', {
 ```
 
 #### `timer:error` - 에러 발생
+
 ```json
 {
   "code": "ALREADY_RUNNING",
@@ -606,19 +665,21 @@ const socket = io('wss://your-domain.com/timer', {
 ```
 
 **에러 코드**:
-| 코드 | 설명 |
-|------|------|
-| `UNAUTHORIZED` | 인증 실패 |
+
+| 코드               | 설명                  |
+| ------------------ | --------------------- |
+| `UNAUTHORIZED`   | 인증 실패             |
 | `USER_NOT_FOUND` | 사용자를 찾을 수 없음 |
-| `NOT_FOUND` | 리소스를 찾을 수 없음 |
-| `START_FAILED` | 타이머 시작 실패 |
-| `STOP_FAILED` | 타이머 정지 실패 |
-| `SYNC_FAILED` | 동기화 실패 |
-| `FORBIDDEN` | 권한 없음 |
+| `NOT_FOUND`      | 리소스를 찾을 수 없음 |
+| `START_FAILED`   | 타이머 시작 실패      |
+| `STOP_FAILED`    | 타이머 정지 실패      |
+| `SYNC_FAILED`    | 동기화 실패           |
+| `FORBIDDEN`      | 권한 없음             |
 
 ### 테스트 방법
 
 #### Postman
+
 1. 새 WebSocket 요청 생성
 2. URL: `wss://your-domain.com/timer`
 3. 연결 후 메시지 전송:
@@ -627,6 +688,7 @@ const socket = io('wss://your-domain.com/timer', {
    ```
 
 #### wscat (CLI)
+
 ```bash
 # 설치
 npm install -g wscat
@@ -641,6 +703,7 @@ wscat -c "wss://your-domain.com/timer" \
 ```
 
 #### Socket.IO 클라이언트
+
 ```javascript
 import { io } from 'socket.io-client';
 
@@ -671,11 +734,13 @@ socket.on('timer:error', (error) => {
 ## 📌 Locations
 
 ### 장소 목록 조회
+
 ```http
 GET /api/locations
 ```
 
 **Response**
+
 ```json
 {
   "data": [
@@ -688,11 +753,13 @@ GET /api/locations
 ```
 
 ### 장소 생성
+
 ```http
 POST /api/locations
 ```
 
 **Request Body**
+
 ```json
 {
   "name": "새 장소 이름"
@@ -704,11 +771,13 @@ POST /api/locations
 ## 📌 Study Sessions
 
 ### 스터디 세션 참가
+
 ```http
 POST /api/locations/:locationId/join
 ```
 
 **Response**
+
 ```json
 {
   "id": "uuid",
@@ -720,16 +789,19 @@ POST /api/locations/:locationId/join
 ```
 
 ### 스터디 세션 퇴장
+
 ```http
 POST /api/study-sessions/:id/leave
 ```
 
 ### 특정 장소의 참가자 조회
+
 ```http
 GET /api/locations/:locationId/participants
 ```
 
 **Response**
+
 ```json
 {
   "location": {
@@ -754,6 +826,7 @@ GET /api/locations/:locationId/participants
 ## 📌 Daily Receipts (일일 영수증)
 
 ### 영수증 목록 조회 (아카이브 탭)
+
 ```http
 GET /api/receipts
 ```
@@ -761,10 +834,12 @@ GET /api/receipts
 사용자의 모든 일일 영수증 목록을 조회합니다.
 
 **Query Parameters**
+
 - `page` (optional): 페이지 번호 (기본값: 1)
 - `limit` (optional): 페이지당 개수 (기본값: 20)
 
 **Response**
+
 ```json
 {
   "data": [
@@ -786,6 +861,7 @@ GET /api/receipts
 ```
 
 ### 특정 날짜 영수증 조회
+
 ```http
 GET /api/receipts/:date
 ```
@@ -793,9 +869,11 @@ GET /api/receipts/:date
 특정 날짜의 영수증을 조회합니다.
 
 **Path Parameters**
+
 - `date`: 조회할 날짜 (YYYY-MM-DD 형식)
 
 **Response (200 OK)**
+
 ```json
 {
   "id": "uuid",
@@ -808,6 +886,7 @@ GET /api/receipts/:date
 ```
 
 **Response (404 Not Found)** - 영수증 없음
+
 ```json
 {
   "statusCode": 404,
@@ -817,15 +896,18 @@ GET /api/receipts/:date
 ```
 
 ### 영수증 생성/갱신
+
 ```http
 POST /api/receipts
 ```
 
 새 영수증을 생성하거나, 해당 날짜의 영수증이 이미 있으면 갱신합니다.
+
 - 사용자가 수동으로 '영수증 추가' 버튼을 누를 때 호출
 - 매일 KST 0시에 자동 생성 (서버 스케줄러)
 
 **Request Body**
+
 ```json
 {
   "date": "2025-01-10",
@@ -836,6 +918,7 @@ POST /api/receipts
 > ℹ️ `totalMinutes`와 `completedTasksCount`는 서버에서 해당 날짜의 time_logs와 checklists를 기반으로 자동 계산합니다.
 
 **Response (201 Created / 200 OK)**
+
 ```json
 {
   "id": "uuid",
@@ -848,6 +931,7 @@ POST /api/receipts
 ```
 
 ### 영수증 삭제
+
 ```http
 DELETE /api/receipts/:date
 ```
@@ -868,10 +952,10 @@ DELETE /api/receipts/:date
 }
 ```
 
-| Status Code | 설명 |
-|-------------|------|
-| 400 | 잘못된 요청 |
-| 401 | 인증 필요 |
-| 403 | 권한 없음 |
-| 404 | 리소스를 찾을 수 없음 |
-| 500 | 서버 오류 |
+| Status Code | 설명                  |
+| ----------- | --------------------- |
+| 400         | 잘못된 요청           |
+| 401         | 인증 필요             |
+| 403         | 권한 없음             |
+| 404         | 리소스를 찾을 수 없음 |
+| 500         | 서버 오류             |

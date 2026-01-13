@@ -13,13 +13,16 @@ import {
   ActivityIndicator,
   Image,
   Alert,
+  Platform,
+  PermissionsAndroid,
 } from 'react-native';
+import RNFS from 'react-native-fs';
+import { CameraRoll } from '@react-native-camera-roll/camera-roll';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import MaterialDesignIcons from '@react-native-vector-icons/material-design-icons';
 const Icon = MaterialDesignIcons;
-import { COLORS, FONT_SIZES, SPACING, BORDER_RADIUS, formatTime, formatTimeShort, formatDate } from '@constants/index';
+import { COLORS, FONT_SIZES, SPACING, BORDER_RADIUS, formatTime } from '@constants/index';
 import { api } from '@services/api';
-import type { DailyArchive } from '../types';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CARD_WIDTH = SCREEN_WIDTH * 0.85;
@@ -40,16 +43,6 @@ interface ReceiptCardData {
   isLoading: boolean;
 }
 
-interface Task {
-  taskName: string;
-  projectName: string;
-  durationMs: number;
-}
-
-interface TimeSlot {
-  active: boolean;
-}
-
 const getDayName = (date: Date): string => {
   const days = ['일', '월', '화', '수', '목', '금', '토'];
   return days[date.getDay()];
@@ -66,37 +59,6 @@ const formatDateShort = (date: Date): string => {
   const month = date.getMonth() + 1;
   const day = date.getDate();
   return `${month}/${day}`;
-};
-
-const generateWeeklyData = (): DailyArchive[] => {
-  const today = new Date();
-  const weekData: DailyArchive[] = [];
-  
-  for (let i = 6; i >= 0; i--) {
-    const date = new Date(today);
-    date.setDate(today.getDate() - i);
-    
-    const hasData = Math.random() > 0.3;
-    const tasks: Task[] = hasData ? [
-      { taskName: '알고리즘 문제 풀기', projectName: '코딩테스트', durationMs: 3600000 + Math.random() * 3600000 },
-      { taskName: '강의 노트 정리', projectName: '자료구조', durationMs: 1800000 + Math.random() * 1800000 },
-      { taskName: '프로젝트 회의', projectName: '팀프로젝트', durationMs: 2400000 + Math.random() * 1200000 },
-    ] : [];
-    
-    const timeSlots: TimeSlot[] = Array.from({ length: 24 }, () => ({
-      active: hasData && Math.random() > 0.5,
-    }));
-    
-    weekData.push({
-      date,
-      tasks,
-      totalTimeMs: tasks.reduce((sum, t) => sum + t.durationMs, 0),
-      timeSlots,
-      recordedAt: hasData ? new Date() : undefined,
-    });
-  }
-  
-  return weekData;
 };
 
 const DashedLine: React.FC = () => (
@@ -120,46 +82,14 @@ const dashStyles = StyleSheet.create({
   },
 });
 
-const BarcodeTimeline: React.FC<{ timeSlots: TimeSlot[] }> = ({ timeSlots }) => (
-  <View style={barcodeStyles.container}>
-    {timeSlots.map((slot, i) => (
-      <View
-        key={i}
-        style={[
-          barcodeStyles.bar,
-          {
-            height: slot.active ? 24 + Math.random() * 16 : 8,
-            backgroundColor: slot.active ? COLORS.gray900 : COLORS.gray200,
-          },
-        ]}
-      />
-    ))}
-  </View>
-);
-
-const barcodeStyles = StyleSheet.create({
-  container: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    height: 48,
-    justifyContent: 'space-between',
-    marginHorizontal: SPACING.md,
-  },
-  bar: {
-    width: (SCREEN_WIDTH * 0.7) / 24 - 2,
-    borderRadius: 1,
-  },
-});
-
 /**
  * 서버에서 생성된 이미지를 표시하는 영수증 카드
  */
 const ReceiptImageCard: React.FC<{
   data: ReceiptCardData;
-  nickname: string;
   onGenerateImage: () => void;
   onDownload?: () => void;
-}> = ({ data, nickname, onGenerateImage, onDownload }) => {
+}> = ({ data, onGenerateImage, onDownload }) => {
   const imageUrl = data.imageUrl ? `${getImageBaseUrl()}${data.imageUrl}` : null;
 
   return (
@@ -446,60 +376,90 @@ export const StudyScreen: React.FC = () => {
   const [weeklyData, setWeeklyData] = useState<ReceiptCardData[]>([]);
   const [currentIndex, setCurrentIndex] = useState(6);
   const [showMonthly, setShowMonthly] = useState(false);
-  const [nickname, setNickname] = useState('사용자');
   const [generatingIndex, setGeneratingIndex] = useState<number | null>(null);
   const flatListRef = useRef<FlatList>(null);
   
+  /**
+   * 주어진 기준일을 포함한 주의 월요일~일요일 날짜 배열 반환
+   */
+  const getWeekDates = useCallback((referenceDate: Date): Date[] => {
+    const result: Date[] = [];
+    const day = referenceDate.getDay(); // 0(일) ~ 6(토)
+    // 월요일 찾기: 일요일이면 -6, 그 외에는 -(day-1)
+    const mondayOffset = day === 0 ? -6 : 1 - day;
+    const monday = new Date(referenceDate);
+    monday.setDate(referenceDate.getDate() + mondayOffset);
+
+    for (let i = 0; i < 7; i++) {
+      const date = new Date(monday);
+      date.setDate(monday.getDate() + i);
+      result.push(date);
+    }
+    return result;
+  }, []);
+
+  // 현재 주의 기준일 (주차 전환 시 변경)
+  const [currentWeekReference, setCurrentWeekReference] = useState(new Date());
+
   // API에서 주간 데이터 로드
-  const loadWeeklyData = useCallback(async () => {
+  const loadWeeklyData = useCallback(async (referenceDate?: Date) => {
+    const refDate = referenceDate || currentWeekReference;
     try {
-      // 사용자 정보 조회
-      const userRes = await api.getMe();
-      if (userRes.data) {
-        setNickname(userRes.data.nickname);
-      }
-      
-      // 영수증 목록 조회 (지난 7일치)
-      const receiptsRes = await api.getReceipts(1, 7);
-      
-      // 주간 데이터 생성
-      const today = new Date();
-      const weekly: ReceiptCardData[] = [];
-      
-      for (let i = 6; i >= 0; i--) {
-        const date = new Date(today);
-        date.setDate(today.getDate() - i);
+      // 해당 주의 월~일 날짜 배열 생성
+      const weekDates = getWeekDates(refDate);
+
+      // 각 날짜에 대해 영수증 상세 정보 조회 (병렬 처리)
+      const detailsPromises = weekDates.map(date => {
         const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-        
-        // 영수증 데이터에서 해당 날짜 찾기
-        const receipt = receiptsRes.data?.data?.find(r => r.date === dateStr);
-        
-        weekly.push({
+        return api.getReceiptDetails(dateStr);
+      });
+
+      const detailsResults = await Promise.all(detailsPromises);
+
+      // 주간 데이터 생성
+      const weekly: ReceiptCardData[] = weekDates.map((date, index) => {
+        const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+        const details = detailsResults[index];
+
+        return {
           date,
           dateStr,
-          imageUrl: receipt?.imageUrl || null,
-          totalMinutes: receipt?.totalMinutes || 0,
+          imageUrl: details.data?.imageUrl || null,
+          totalMinutes: details.data?.totalMinutes || 0,
           isLoading: false,
-        });
-      }
-      
+        };
+      });
+
       setWeeklyData(weekly);
+
+      // 오늘이 현재 주에 포함되어 있으면 오늘로 스크롤
+      const today = new Date();
+      const todayDateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+      const todayIndex = weekly.findIndex(d => d.dateStr === todayDateStr);
+      if (todayIndex >= 0) {
+        setCurrentIndex(todayIndex);
+        setTimeout(() => {
+          flatListRef.current?.scrollToIndex({ index: todayIndex, animated: false });
+        }, 100);
+      } else {
+        setCurrentIndex(6); // 일요일
+        setTimeout(() => {
+          flatListRef.current?.scrollToIndex({ index: 6, animated: false });
+        }, 100);
+      }
     } catch (error) {
       console.error('주간 데이터 로드 실패:', error);
       // 실패 시 빈 데이터로 초기화
-      const today = new Date();
-      const emptyWeekly: ReceiptCardData[] = [];
-      for (let i = 6; i >= 0; i--) {
-        const date = new Date(today);
-        date.setDate(today.getDate() - i);
+      const weekDates = getWeekDates(refDate);
+      const emptyWeekly: ReceiptCardData[] = weekDates.map(date => {
         const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-        emptyWeekly.push({ date, dateStr, imageUrl: null, totalMinutes: 0, isLoading: false });
-      }
+        return { date, dateStr, imageUrl: null, totalMinutes: 0, isLoading: false };
+      });
       setWeeklyData(emptyWeekly);
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [currentWeekReference, getWeekDates]);
   
   // 영수증 이미지 생성
   const handleGenerateImage = useCallback(async (index: number) => {
@@ -541,31 +501,155 @@ export const StudyScreen: React.FC = () => {
     }
   }, [weeklyData]);
   
-  useEffect(() => { loadWeeklyData(); }, [loadWeeklyData]);
-  
+  // 주차 변경 시 데이터 다시 로드
+  useEffect(() => { loadWeeklyData(currentWeekReference); }, [currentWeekReference]);
+
+  // 이전 주차로 이동
+  const goToPreviousWeek = useCallback(() => {
+    setIsLoading(true);
+    const prevWeek = new Date(currentWeekReference);
+    prevWeek.setDate(prevWeek.getDate() - 7);
+    setCurrentWeekReference(prevWeek);
+  }, [currentWeekReference]);
+
+  // 다음 주차로 이동
+  const goToNextWeek = useCallback(() => {
+    setIsLoading(true);
+    const nextWeek = new Date(currentWeekReference);
+    nextWeek.setDate(nextWeek.getDate() + 7);
+    setCurrentWeekReference(nextWeek);
+  }, [currentWeekReference]);
+
+  // 이번 주로 이동
+  const goToCurrentWeek = useCallback(() => {
+    setIsLoading(true);
+    setCurrentWeekReference(new Date());
+  }, []);
+
   const totalWeekTime = weeklyData.reduce((sum, d) => sum + d.totalMinutes * 60 * 1000, 0);
-  
-  const onRefresh = async () => { 
-    setRefreshing(true); 
-    await loadWeeklyData(); 
-    setRefreshing(false); 
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await loadWeeklyData(currentWeekReference);
+    setRefreshing(false);
   };
-  
-  const scrollToIndex = (index: number) => { 
-    flatListRef.current?.scrollToIndex({ index, animated: true }); 
-    setCurrentIndex(index); 
+
+  const scrollToIndex = (index: number) => {
+    flatListRef.current?.scrollToIndex({ index, animated: true });
+    setCurrentIndex(index);
   };
-  
+
+  // 스크롤 끝 감지를 위한 상태
+  const [isScrollingForWeekChange, setIsScrollingForWeekChange] = useState(false);
+
   const handleScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const idx = Math.round(e.nativeEvent.contentOffset.x / (CARD_WIDTH + CARD_GAP));
+    const offsetX = e.nativeEvent.contentOffset.x;
+    const idx = Math.round(offsetX / (CARD_WIDTH + CARD_GAP));
     if (idx !== currentIndex && idx >= 0 && idx < weeklyData.length) setCurrentIndex(idx);
   };
+
+  // 스크롤이 끝에 도달했을 때 주차 전환
+  const handleScrollEndDrag = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const offsetX = e.nativeEvent.contentOffset.x;
+    const contentWidth = (CARD_WIDTH + CARD_GAP) * weeklyData.length;
+    const viewWidth = SCREEN_WIDTH;
+
+    // 왼쪽 끝에서 더 스크롤 시 (offset이 음수)
+    if (offsetX < -50 && !isScrollingForWeekChange) {
+      setIsScrollingForWeekChange(true);
+      goToPreviousWeek();
+      setTimeout(() => setIsScrollingForWeekChange(false), 500);
+    }
+    // 오른쪽 끝에서 더 스크롤 시
+    else if (offsetX > contentWidth - viewWidth + 50 && !isScrollingForWeekChange) {
+      setIsScrollingForWeekChange(true);
+      goToNextWeek();
+      setTimeout(() => setIsScrollingForWeekChange(false), 500);
+    }
+  };
   
-  const handleDownload = useCallback((index: number) => {
+  // Android 권한 요청
+  const requestStoragePermission = async (): Promise<boolean> => {
+    if (Platform.OS !== 'android') return true;
+
+    try {
+      // Android 13 이상에서는 READ_MEDIA_IMAGES 권한 필요
+      if (Platform.Version >= 33) {
+        const granted = await PermissionsAndroid.request(
+          PermissionsAndroid.PERMISSIONS.READ_MEDIA_IMAGES,
+          {
+            title: '갤러리 접근 권한',
+            message: '영수증 이미지를 갤러리에 저장하려면 접근 권한이 필요합니다.',
+            buttonNeutral: '나중에',
+            buttonNegative: '거부',
+            buttonPositive: '허용',
+          }
+        );
+        return granted === PermissionsAndroid.RESULTS.GRANTED;
+      } else {
+        // Android 12 이하에서는 WRITE_EXTERNAL_STORAGE 권한 필요
+        const granted = await PermissionsAndroid.request(
+          PermissionsAndroid.PERMISSIONS.WRITE_EXTERNAL_STORAGE,
+          {
+            title: '저장소 접근 권한',
+            message: '영수증 이미지를 갤러리에 저장하려면 저장소 접근 권한이 필요합니다.',
+            buttonNeutral: '나중에',
+            buttonNegative: '거부',
+            buttonPositive: '허용',
+          }
+        );
+        return granted === PermissionsAndroid.RESULTS.GRANTED;
+      }
+    } catch (err) {
+      console.error('권한 요청 실패:', err);
+      return false;
+    }
+  };
+
+  // 갤러리에 이미지 저장
+  const handleDownload = useCallback(async (index: number) => {
     const data = weeklyData[index];
-    if (data?.imageUrl) {
+    if (!data?.imageUrl) {
+      Alert.alert('알림', '저장할 이미지가 없습니다.');
+      return;
+    }
+
+    try {
+      // 권한 확인
+      const hasPermission = await requestStoragePermission();
+      if (!hasPermission) {
+        Alert.alert('권한 필요', '갤러리에 이미지를 저장하려면 저장소 접근 권한이 필요합니다.');
+        return;
+      }
+
+      // 이미지 URL
       const fullUrl = `${getImageBaseUrl()}${data.imageUrl}`;
-      Alert.alert('다운로드', `이미지 URL: ${fullUrl}\n\n(갤러리 저장 기능은 추후 구현 예정)`);
+      const filename = `momento_receipt_${data.dateStr}.png`;
+      const localPath = `${RNFS.CachesDirectoryPath}/${filename}`;
+
+      // 로딩 표시
+      Alert.alert('다운로드 중', '이미지를 저장하고 있습니다...');
+
+      // 이미지 다운로드
+      const downloadResult = await RNFS.downloadFile({
+        fromUrl: fullUrl,
+        toFile: localPath,
+      }).promise;
+
+      if (downloadResult.statusCode !== 200) {
+        throw new Error('이미지 다운로드 실패');
+      }
+
+      // 갤러리에 저장
+      await CameraRoll.saveAsset(`file://${localPath}`, { type: 'photo', album: 'Momento' });
+
+      // 캐시 파일 삭제
+      await RNFS.unlink(localPath);
+
+      Alert.alert('완료', '영수증 이미지가 갤러리에 저장되었습니다.');
+    } catch (error) {
+      console.error('이미지 저장 실패:', error);
+      Alert.alert('오류', '이미지 저장에 실패했습니다. 다시 시도해주세요.');
     }
   }, [weeklyData]);
   
@@ -573,18 +657,35 @@ export const StudyScreen: React.FC = () => {
   
   if (isLoading || weeklyData.length === 0) return <SafeAreaView style={styles.container} edges={['top']}><View style={styles.loading}><ActivityIndicator size="large" color={COLORS.gray900} /><Text style={styles.loadingText}>로딩 중...</Text></View></SafeAreaView>;
   
+  // 현재 주인지 확인
+  const isCurrentWeek = (() => {
+    const today = new Date();
+    const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    return weeklyData.some(d => d.dateStr === todayStr);
+  })();
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
-        <View style={{ width: 24 }} />
-        <Text style={styles.headerTitle}>주간 아카이브</Text>
-        <View style={{ width: 24 }} />
+        <TouchableOpacity onPress={goToPreviousWeek} style={styles.headerButton}>
+          <Icon name="chevron-left" size={24} color={COLORS.gray600} />
+        </TouchableOpacity>
+        <TouchableOpacity onPress={goToCurrentWeek} disabled={isCurrentWeek}>
+          <Text style={[styles.headerTitle, !isCurrentWeek && styles.headerTitleClickable]}>
+            주간 아카이브 {!isCurrentWeek && '(이번 주로)'}
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity onPress={goToNextWeek} style={styles.headerButton}>
+          <Icon name="chevron-right" size={24} color={COLORS.gray600} />
+        </TouchableOpacity>
       </View>
-      
+
       <ScrollView style={styles.scrollView} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />} showsVerticalScrollIndicator={false}>
         <View style={styles.summaryContainer}>
           <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>이번 주 총 시간</Text>
+            <Text style={styles.summaryLabel}>
+              {isCurrentWeek ? '이번 주 총 시간' : `${weeklyData[0].date.getMonth() + 1}월 ${weeklyData[0].date.getDate()}일 주간`}
+            </Text>
             <Text style={styles.summaryValue}>{formatTime(totalWeekTime)}</Text>
           </View>
           <View style={styles.summaryRow}>
@@ -592,7 +693,7 @@ export const StudyScreen: React.FC = () => {
             <Text style={styles.summarySubLabel}>일 평균 {formatTime(Math.floor(totalWeekTime / 7))}</Text>
           </View>
         </View>
-        
+
         <View style={styles.dateNav}>
           {weeklyData.map((day, index) => (
             <TouchableOpacity key={index} onPress={() => scrollToIndex(index)} style={[styles.dateNavItem, currentIndex === index && styles.dateNavItemActive]}>
@@ -602,7 +703,7 @@ export const StudyScreen: React.FC = () => {
             </TouchableOpacity>
           ))}
         </View>
-        
+
         <FlatList
           ref={flatListRef}
           data={weeklyData}
@@ -612,18 +713,18 @@ export const StudyScreen: React.FC = () => {
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.carouselContent}
           onScroll={handleScroll}
+          onScrollEndDrag={handleScrollEndDrag}
           scrollEventThrottle={16}
+          bounces={true}
           renderItem={({ item, index }) => (
-            <ReceiptImageCard 
-              data={item} 
-              nickname={nickname} 
+            <ReceiptImageCard
+              data={item}
               onGenerateImage={() => handleGenerateImage(index)}
-              onDownload={() => handleDownload(index)} 
+              onDownload={() => handleDownload(index)}
             />
           )}
-          keyExtractor={(_, index) => index.toString()}
+          keyExtractor={(item) => item.dateStr}
           getItemLayout={(_, index) => ({ length: CARD_WIDTH + CARD_GAP, offset: (CARD_WIDTH + CARD_GAP) * index, index })}
-          initialScrollIndex={6}
           onScrollToIndexFailed={() => {}}
         />
         
@@ -654,8 +755,10 @@ export const StudyScreen: React.FC = () => {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.surface },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: SPACING.base, paddingVertical: SPACING.md, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: COLORS.gray200 },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: SPACING.sm, paddingVertical: SPACING.md, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: COLORS.gray200 },
+  headerButton: { padding: SPACING.sm },
   headerTitle: { fontSize: FONT_SIZES.md, fontWeight: '600', color: COLORS.gray900 },
+  headerTitleClickable: { color: COLORS.primary },
   scrollView: { flex: 1 },
   loading: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: SPACING.md },
   loadingText: { fontSize: FONT_SIZES.base, color: COLORS.gray500 },

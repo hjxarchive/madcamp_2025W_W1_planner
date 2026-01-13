@@ -3,7 +3,7 @@ import { StyleSheet } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import MaterialDesignIcons from '@react-native-vector-icons/material-design-icons';
 const Icon = MaterialDesignIcons;
-import { HomeScreen, PastScreen, StudyScreen } from '@screens/index';
+import { HomeScreen, PastScreen, StudyScreen, CoStudyScreen } from '@screens/index';
 import { COLORS, TAB_NAMES, FONT_SIZES, SPACING } from '@constants/index';
 
 const Tab = createBottomTabNavigator();
@@ -18,6 +18,7 @@ const TabIcon: React.FC<TabIconProps> = ({ name, focused }) => {
     [TAB_NAMES.MAIN]: { active: 'clock', inactive: 'clock-outline' },
     [TAB_NAMES.REPORT]: { active: 'chart-bar', inactive: 'chart-bar' },
     [TAB_NAMES.ARCHIVE]: { active: 'calendar', inactive: 'calendar-outline' },
+    [TAB_NAMES.STUDY]: { active: 'account-group', inactive: 'account-group-outline' },
   };
 
   const icons = iconMap[name] || { active: 'circle', inactive: 'circle-outline' };
@@ -66,6 +67,14 @@ export const BottomTabNavigator: React.FC = () => {
         options={{
           tabBarLabel: TAB_NAMES.ARCHIVE,
           tabBarIcon: ({ focused }) => <TabIcon name={TAB_NAMES.ARCHIVE} focused={focused} />,
+        }}
+      />
+      <Tab.Screen
+        name="Study"
+        component={CoStudyScreen}
+        options={{
+          tabBarLabel: TAB_NAMES.STUDY,
+          tabBarIcon: ({ focused }) => <TabIcon name={TAB_NAMES.STUDY} focused={focused} />,
         }}
       />
     </Tab.Navigator>

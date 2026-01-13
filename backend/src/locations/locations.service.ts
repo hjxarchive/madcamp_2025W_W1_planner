@@ -1,10 +1,36 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, OnModuleInit, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateLocationDto } from './dto';
 
+// 시드 데이터: 기본 스터디 장소들
+const SEED_LOCATIONS = ['공부방1', '공부방2', '도서관', '카페'];
+
 @Injectable()
-export class LocationsService {
+export class LocationsService implements OnModuleInit {
+  private readonly logger = new Logger(LocationsService.name);
+
   constructor(private prisma: PrismaService) {}
+
+  async onModuleInit() {
+    // 앱 시작 시 시드 데이터 확인 및 생성
+    await this.seedLocations();
+  }
+
+  private async seedLocations() {
+    const existingLocations = await this.prisma.location.findMany();
+
+    if (existingLocations.length === 0) {
+      this.logger.log('시드 데이터 생성 중: 기본 스터디 장소들');
+
+      for (const name of SEED_LOCATIONS) {
+        await this.prisma.location.create({
+          data: { name },
+        });
+      }
+
+      this.logger.log(`${SEED_LOCATIONS.length}개의 기본 장소가 생성되었습니다.`);
+    }
+  }
 
   async findAll() {
     const locations = await this.prisma.location.findMany({
