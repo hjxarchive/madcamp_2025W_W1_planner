@@ -23,7 +23,7 @@
 ---
 
 ## ❓ 문제 정의 (Problem Definition)
-**"평소에 계획을 좋아하지만 어떻게 계획해야 할지 몰랐거나, 세운 계획을 실천하는 과정을 시각화하고 싶으신가요?"**
+> **"평소에 계획을 좋아하지만 어떻게 계획해야 할지 몰랐거나, 세운 계획을 실천하는 과정을 시각화하고 싶으신가요?"**
 
 많은 사람들이 목표를 세우지만, 그 목표를 달성하기 위한 세부 단위(Task)를 어떻게 관리하고 시간을 배분해야 할지 어려움을 겪습니다. **Momento**는 추상적인 계획을 구체적인 시간 기록으로 전환하여, 당신의 성취를 수치와 리포트로 증명합니다.
 
@@ -42,63 +42,64 @@
 
 ### 2. Momento의 구성 요소
 * **Task**: 시간을 측정할 수 있는 기본 단위.
-* **Project**: 여러 개의 Task로 구성된 장기 목표.
-* **Personal Project**: 참여 인원이 1명인 개인용 프로젝트.
-* **Team Project**: 참여 인원이 2명 이상인 협업용 프로젝트.
+* **Project**: 여러 개의 Task를 포함하는 장기 목표.
+* **Personal Project**: 참여 인원이 1명인 프로젝트.
+* **Team Project**: 참여 인원이 2명 이상인 프로젝트.
 
 ---
 
 ## ✨ 주요 기능 (Key Features)
 
-### 1️⃣ 로그인 및 사용자 인증
-* **Google Sign-in**: Firebase Auth 기반의 간편 로그인 및 JWT 토큰 보안 서비스.
-* **로그인 애니메이션**: 사용자 경험을 높여주는 부드러운 시작 화면.
+### 1️⃣ 시작하기 및 프로필 관리
+* **Google Sign-in**: Firebase Auth 기반의 JWT 토큰 로그인 서비스.
+* **커스텀 프로필**: 이모지 및 닉네임 수정 기능 (닉네임 중복 방지 포함).
 
-| 로그인 페이지 | 개인정보 수정 (이모지/닉네임) |
+| 로그인 애니메이션 | 프로필 & 이모지 수정 |
 | :---: | :---: |
-| <img src="./image/Momento_로그인.gif" width="300"> | <img src="./image/Momento_개인정보수정모달.gif" width="300"> |
-
-> **Exception Handler:** 닉네임 수정 시 중복 검사를 수행하여 중복된 경우 수정을 제한합니다.
+| <img src="./image/Momento_로그인.gif" width="300"> | <img src="./image/Momento_이모지변경.gif" width="300"> |
 
 <br/>
 
-### 2️⃣ 개인 프로젝트 관리 (Personal)
-* **프로젝트 생성**: 이름 및 Due Date(마감일) 설정 가능.
-* **실시간 진행도**: 프로젝트 내 Task의 완료 여부에 따라 진행률을 자동 계산합니다.
-  $$Progress = 100 \times \frac{Completed Tasks}{Total Tasks}$$
-* **집중 모드 (뽀모도로)**: 시간 측정 중 파도 모양 시계를 누르면 시간 측정에만 집중할 수 있는 간결한 페이지로 전환됩니다.
+### 2️⃣ 개인 프로젝트 (Personal Project)
+* **프로젝트 생성**: 마감일(Due Date) 설정 및 Task 할당.
+* **진행도 계산**: 완료된 Task 비율에 따라 실시간 진행률 시각화.
+  $$진행도 = 100 \times \frac{완료된 Task 개수}{전체 Task 개수}$$
+* **집중 모드 (뽀모도로)**: 메인 페이지의 파도 시계를 클릭하여 측정 기능에만 집중하는 간결한 UI 제공.
 
 | 프로젝트 생성 및 관리 | 집중 모드 (뽀모도로) |
 | :---: | :---: |
 | <img src="./image/Momento_개인프로젝트.gif" width="300"> | <img src="./image/Momento_집중모드.gif" width="300"> |
 
-> **Exception Handler:** > * 프로젝트명 또는 마감일 미입력 시 오류 메시지 발생.
-> * 시간 측정 중인 Task는 삭제 버튼이 비활성화되며, 해당 Task를 포함한 프로젝트 삭제 시도 시 오류 메시지가 발생합니다.
-
 <br/>
 
-### 3️⃣ 유기적인 팀 프로젝트 (Collaboration)
-* **팀원 관리**: 닉네임 검색을 통해 프로젝트 생성 시 또는 생성 후 상단 버튼으로 팀원을 추가할 수 있습니다.
-* **담당자 지정**: Task 생성 시 팀원 중 담당자를 배정하여 역할 분담을 명확히 합니다.
-* **실시간 상태 공유**: 상단 MemberCard를 통해 각 팀원의 진행도를 확인하며, 인원이 많을 경우 스크롤을 지원합니다.
+### 3️⃣ 팀 프로젝트 및 협업 (Team Project)
+* **팀원 초대**: 닉네임 검색을 통해 프로젝트 생성 중 또는 상단 추가 버튼으로 팀원 초대.
+* **역할 분담**: Task별 담당자 지정 및 담당자만 시간 측정이 가능한 권한 시스템.
+* **팀 상태 공유**: 상단 MemberCard를 통해 팀원별 진행도를 실시간 확인 (스크롤 지원).
 
 | 팀원 추가 및 스크롤 | 팀 프로젝트 관리 |
 | :---: | :---: |
 | <img src="./image/Momento_팀스크롤.gif" width="300"> | <img src="./image/Momento_팀 프로젝트.gif" width="300"> |
 
-> **Exception Handler:** > * 담당자가 아닌 팀원은 해당 Task의 시간을 측정할 수 없습니다.
-> * 프로젝트 삭제 권한은 오직 생성자에게만 부여됩니다.
-
 <br/>
 
-### 4️⃣ 보고서 및 아카이브 (Report)
-* **데이터 시각화**: 완료된 프로젝트의 Task 기록을 바탕으로 시간 비례 파이 차트 리포트를 생성합니다.
-* **성과 기록**: 소요 시간, 완료 Task 리스트, 유저 평점(0~10)을 저장합니다.
-* **완료 강조**: 완료된 프로젝트는 메인 페이지에서 초록색으로 강조 표시됩니다.
+### 4️⃣ 데이터 시각화 및 아카이빙 (Reporting)
+* **보고서 제작**: 완료된 프로젝트의 Task별 측정 시간 비율을 파이 테이블로 생성.
+* **영수증 발행**: 24시간을 10분 단위로 나누어, 몰입한 시간을 **바코드 형태**로 시각화한 일일 영수증 생성.
+* **아카이브 탭**: 매일 발행된 영수증을 주간/월간 단위로 모아보고 이미지로 저장 가능.
 
-| 보고서 제작 모달 | 영수증 제작 (작성 중) |
+| 보고서 제작 및 아카이빙 | 상세 보고서 확인 |
 | :---: | :---: |
-| <img src="./image/Momento_보고서 제작.gif" width="300"> | <img src="./image/paper.jpg" width="300"> |
+| <img src="./image/Momento_보고서 제작.gif" width="300"> | <img src="./image/Momento_상세 보고서.gif" width="300"> |
+
+---
+
+## 🛡️ 예외 처리 (Exception Handler)
+* **입력 검증**: 프로젝트명 또는 마감일 미입력 시 오류 메시지 발생.
+* **데이터 무결성**: 
+  * 특정 Task가 측정 중일 때 삭제 버튼 은닉.
+  * 측정 중인 Task가 포함된 프로젝트 삭제 시도 시 경고 메시지 출력.
+* **권한 보호**: 팀 프로젝트 담당자가 아닌 경우 시간 측정 제한, 생성자 외 프로젝트 삭제 불가.
 
 ---
 
@@ -106,10 +107,10 @@
 ```text
 momento/
 ├── app/                     # 배포용 APK (momento.apk)
-├── backend/                 # NestJS 백엔드 서버
-│   ├── prisma/              # DB Schema (PostgreSQL)
+├── backend/                 # NestJS 서버 기반 백엔드
+│   ├── prisma/              # Schema & Migrations (PostgreSQL)
 │   └── src/                 # Business Logic (Modules)
 ├── frontend/                # React Native 모바일 앱
-│   ├── src/                 # Screens & Components
-│   └── android/             # Android Native Settings
-└── image/                   # README 리소스 및 데모 gif
+│   ├── src/                 # Screens, Components, Hooks
+│   └── android/             # Native Gradle Settings
+└── image/                   # README 리소스 및 데모 GIF
