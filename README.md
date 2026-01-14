@@ -56,7 +56,7 @@
 
 | 로그인 페이지 | 개인정보 수정 (이모지/닉네임) |
 | :---: | :---: |
-| <img src="./image/Momento_로그인.mp4" width="300"> | <img src="./image/Momento_개인정보수정모달.mp4" width="300"> |
+| <img src="./image/Momento_로그인.gif" width="300"> | <img src="./image/Momento_개인정보수정모달.gif" width="300"> |
 
 > **Exception Handler:** 닉네임 수정 시 중복 검사를 수행하여 중복된 경우 수정을 제한합니다.
 
@@ -70,7 +70,7 @@
 
 | 프로젝트 생성 및 관리 | 집중 모드 (뽀모도로) |
 | :---: | :---: |
-| <img src="./image/Momento_개인프로젝트.mp4" width="300"> | <img src="./image/Momento_집중모드.mp4" width="300"> |
+| <img src="./image/Momento_개인프로젝트.gif" width="300"> | <img src="./image/Momento_집중모드.gif" width="300"> |
 
 > **Exception Handler:** > * 프로젝트명 또는 마감일 미입력 시 오류 메시지 발생.
 > * 시간 측정 중인 Task는 삭제 버튼이 비활성화되며, 해당 Task를 포함한 프로젝트 삭제 시도 시 오류 메시지가 발생합니다.
@@ -84,7 +84,7 @@
 
 | 팀원 추가 및 스크롤 | 팀 프로젝트 관리 |
 | :---: | :---: |
-| <img src="./image/Momento_팀스크롤.mp4" width="300"> | <img src="./image/Momento_팀 프로젝트.mp4" width="300"> |
+| <img src="./image/Momento_팀스크롤.gif" width="300"> | <img src="./image/Momento_팀 프로젝트.gif" width="300"> |
 
 > **Exception Handler:** > * 담당자가 아닌 팀원은 해당 Task의 시간을 측정할 수 없습니다.
 > * 프로젝트 삭제 권한은 오직 생성자에게만 부여됩니다.
@@ -98,7 +98,7 @@
 
 | 보고서 제작 모달 | 영수증 제작 (작성 중) |
 | :---: | :---: |
-| <img src="./image/Momento_보고서 제작.mp4" width="300"> | <img src="./image/paper.jpg" width="300"> |
+| <img src="./image/Momento_보고서 제작.gif" width="300"> | <img src="./image/paper.jpg" width="300"> |
 
 ---
 
@@ -112,4 +112,4 @@ momento/
 ├── frontend/                # React Native 모바일 앱
 │   ├── src/                 # Screens & Components
 │   └── android/             # Android Native Settings
-└── image/                   # README 리소스 및 데모 mp4
+└── image/                   # README 리소스 및 데모 gif
