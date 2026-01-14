@@ -1,9 +1,38 @@
-# Momento - 효과적인 시간 관리 및 기록 시스템
+# 🕒 Momento
 
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 ![Status](https://img.shields.io/badge/status-in%20development-yellow)
+![React Native](https://img.shields.io/badge/React_Native-61DAFB?style=flat&logo=react&logoColor=black)
+![NestJS](https://img.shields.io/badge/NestJS-E0234E?style=flat&logo=nestjs&logoColor=white)
 
-개인 및 협업 프로젝트의 시간을 효과적으로 관리하고 기록하는 모바일 애플리케이션
+> **"기억하고 싶은 모든 순간을 기록으로, 성장을 성과로."**
+
+
+개인의 몰입과 팀의 협업을 연결하는 스마트 시간 관리 및 프로젝트 기록 시스템
+
+---
+
+## 📝 프로젝트 소개
+**Momento**는 단순한 타이머를 넘어, 프로젝트의 시작부터 종료까지의 모든 과정을 시각화하고 기록합니다. 개인의 집중 시간 관리부터 팀 단위의 실시간 협업 상태 공유까지, 더 효율적인 작업 환경을 제공합니다.
+
+### ✨ 주요 기능
+* **Today (메인)**: 오늘 하루 총 작업 시간 및 참여 프로젝트 요약 대시보드
+* **Current (진행 중)**: 개인 프로젝트 전용 타이머. 체크리스트를 통한 실시간 진행률 관리
+* **Past (기록관)**: 완료된 프로젝트를 음악 앨범 커버 UI로 시각화하여 보관 (평점 기록 가능)
+* **Collaboration (협업)**: 2인 이상 프로젝트 자동 분류, 담당자 할당 및 팀원별 진척도 확인
+* **Study (실시간 공유)**: 특정 장소에서 함께 공부하는 사용자들의 현황 및 공부 시간 실시간 공유
+
+---
+
+## 👥 팀원 소개
+
+| 탁한진 | 안준영 |
+| :---: | :---: |
+| <img src="https://github.com/[ID1].png" width="150"> | <img src="https://github.com/[ID2].png" width="150"> |
+| [![GitHub Badge](https://img.shields.io/badge/GitHub-181717?style=flat&logo=github&logoColor=white)](https://github.com/hjxarchive) | [![GitHub Badge](https://img.shields.io/badge/GitHub-181717?style=flat&logo=github&logoColor=white)](https://github.com/ahnjun0) |
+| KAIST SoC | PNU CSE |
+| Backend / Infrastructure | Frontend / UI/UX |
+
 
 ## 📱 주요 기능
 
@@ -40,26 +69,20 @@
 - 장소 선택 (현재는 단순 select로 구현, 추후 위치 기반 확장 예정)
 
 ---
-
 ## 🛠️ 기술 스택
 
-### Backend
+### Infrastructure & Backend
+- **Hosting**: KCloud (Ubuntu 22.04 LTS)
+- **Server**: Node.js (v22.x), NestJS (v10.x)
+- **Database**: PostgreSQL (v16.x), Prisma ORM
+- **Reverse Proxy**: Nginx, PM2
 
-| 구분 | 기술 | 버전 | 용도 |
-|------|------|------|------|
-| Runtime | Node.js | 22.x | JavaScript 실행 환경 |
-| Framework | NestJS | 10.x | 백엔드 프레임워크 |
-| Language | TypeScript | 5.x | 타입 안정성 |
-| ORM | Prisma | 6.x | 데이터베이스 접근 |
-| Database | PostgreSQL | 16.x | 메인 데이터베이스 |
+### Frontend & Communication
+- **Framework**: React Native (Android)
+- **Auth**: Firebase Authentication
+- **API**: REST API, Socket.io
 
-### Frontend
-
-| 구분 | 기술 | 용도 |
-|------|------|------|
-| Framework | React Native | Android 앱 |
-| 인증 | Firebase Auth | 사용자 인증 |
-
+---
 ### 테스트 환경
 
 | 기기 | 비고 |
