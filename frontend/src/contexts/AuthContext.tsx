@@ -8,7 +8,7 @@ import React, {
 } from 'react';
 import { Alert } from 'react-native';
 import { authService, AuthUser } from '@services/auth';
-import socketService from '@services/socket';
+import socketService, { UserUpdatedPayload } from '@services/socket';
 
 interface AuthContextType {
   user: AuthUser | null;
@@ -58,6 +58,33 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
     init();
   }, []);
+
+  // 실시간 사용자 정보 업데이트 구독
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const handleUserUpdated = (payload: UserUpdatedPayload) => {
+      // 현재 사용자의 정보가 변경된 경우에만 업데이트
+      if (payload.userId === user.id) {
+        console.log('[AuthContext] User updated:', payload);
+        setUser(prev =>
+          prev
+            ? {
+                ...prev,
+                nickname: payload.nickname,
+                profileEmoji: payload.profileEmoji ?? null,
+              }
+            : null
+        );
+      }
+    };
+
+    socketService.onUserUpdated(handleUserUpdated);
+
+    return () => {
+      socketService.off('user:updated');
+    };
+  }, [user?.id]);
 
   const signInWithGoogle = useCallback(async () => {
     setIsLoading(true);

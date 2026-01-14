@@ -20,10 +20,16 @@ import { WriteReportModal } from '@components/WriteReportModal';
 import { AddTaskModal } from '@components/AddTaskModal';
 import { AddMemberModal } from '@components/AddMemberModal';
 import { api } from '@services/api';
+import socketService, {
+  ChecklistCreatedPayload,
+  ChecklistUpdatedPayload,
+  ChecklistDeletedPayload,
+} from '@services/socket';
 import { COLORS, FONT_SIZES, FONTS, SPACING, BORDER_RADIUS, formatTime, formatDate } from '@constants/index';
-import type { Project, Task, Member } from '../types';
+import type { Project, Task } from '../types';
 import { transformProjectDetail } from '../types';
 import { useTimer } from '@contexts/TimerContext';
+import { useAuth } from '@contexts/AuthContext';
 
 // ========================
 // Animated Dots Component
@@ -274,15 +280,47 @@ const TeamProjectPage: React.FC<TeamProjectPageProps> = ({
   // 이 프로젝트의 현재 실행 중인 Task인지 확인 (본인)
   const currentTaskInProject = project.id === currentProjectId &&
     project.tasks.find(t => t.id === currentTaskId);
-  const displayTotalTime = currentTaskInProject && isTimerRunning
-    ? project.totalTimeMs + elapsedTime
-    : project.totalTimeMs;
+
+  // 팀원들의 타이머 경과 시간 합산을 위한 state
+  const [teamMembersElapsedTime, setTeamMembersElapsedTime] = useState(0);
+  const projectMemberTimers = memberTimers[project.id] || [];
+
+  // 팀원들의 경과 시간 계산 (1초마다 업데이트)
+  useEffect(() => {
+    if (projectMemberTimers.length === 0) {
+      setTeamMembersElapsedTime(0);
+      return;
+    }
+
+    const calculateMembersElapsed = () => {
+      const now = Date.now();
+      let total = 0;
+      projectMemberTimers.forEach(mt => {
+        const startedAt = new Date(mt.startedAt).getTime();
+        total += now - startedAt;
+      });
+      return total;
+    };
+
+    // 초기 계산
+    setTeamMembersElapsedTime(calculateMembersElapsed());
+
+    // 1초마다 업데이트
+    const interval = setInterval(() => {
+      setTeamMembersElapsedTime(calculateMembersElapsed());
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [projectMemberTimers]);
+
+  // 표시할 총 시간: 기본 시간 + 내 타이머 + 팀원들 타이머
+  const myElapsedTime = (currentTaskInProject && isTimerRunning) ? elapsedTime : 0;
+  const displayTotalTime = project.totalTimeMs + myElapsedTime + teamMembersElapsedTime;
 
   // 본인의 활성 상태 (본인이 타이머 실행 중)
   const isMyTimerActive = !!(currentTaskInProject && isTimerRunning);
 
   // 프로젝트 내 활성 타이머가 있는지 (본인 또는 팀원)
-  const projectMemberTimers = memberTimers[project.id] || [];
   const hasAnyActiveTimer = isMyTimerActive || projectMemberTimers.length > 0;
 
   // 현재 실행 중인 Task의 할당자 찾기 (본인 타이머용)
@@ -460,6 +498,7 @@ interface ProjectDetailScreenProps {
 export const ProjectDetailScreen: React.FC<ProjectDetailScreenProps> = ({ route }) => {
   const navigation = useNavigation();
   const routeParams = route?.params as { projectId?: string; project?: Project } | undefined;
+  const { user } = useAuth();
 
   // Project state
   const [project, setProject] = useState<Project | null>(null);
@@ -519,6 +558,90 @@ export const ProjectDetailScreen: React.FC<ProjectDetailScreenProps> = ({ route 
       };
     }
   }, [project, joinProjectRoom, leaveProjectRoom]);
+
+  // 실시간 체크리스트(Task) 이벤트 구독
+  useEffect(() => {
+    if (!project || !user) return;
+
+    const handleChecklistCreated = (payload: ChecklistCreatedPayload) => {
+      // 이 프로젝트의 이벤트만 처리
+      if (payload.projectId !== project.id) return;
+      // 본인이 생성한 이벤트는 무시 (이미 로컬에 추가됨)
+      if (payload.createdByUserId === user.id) return;
+
+      const newTask: Task = {
+        id: payload.checklist.id,
+        content: payload.checklist.content,
+        isDone: payload.checklist.isCompleted,
+        durationMs: payload.checklist.totalTimeMinutes * 60 * 1000,
+        projectId: project.id,
+        projectTitle: project.title,
+        assigneeId: payload.checklist.assigneeId ?? undefined,
+        assigneeName: payload.checklist.assigneeNickname ?? undefined,
+        displayOrder: payload.checklist.displayOrder,
+      };
+
+      setProject(prev => {
+        if (!prev) return prev;
+        // 이미 존재하는지 확인 (중복 방지)
+        if (prev.tasks.some(t => t.id === newTask.id)) return prev;
+        return {
+          ...prev,
+          tasks: [...prev.tasks, newTask],
+        };
+      });
+    };
+
+    const handleChecklistUpdated = (payload: ChecklistUpdatedPayload) => {
+      if (payload.projectId !== project.id) return;
+      // 본인이 수정한 이벤트는 무시 (이미 로컬에서 업데이트됨)
+      if (payload.updatedByUserId === user.id) return;
+
+      setProject(prev => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          tasks: prev.tasks.map(t =>
+            t.id === payload.checklist.id
+              ? {
+                  ...t,
+                  content: payload.checklist.content,
+                  isDone: payload.checklist.isCompleted,
+                  assigneeId: payload.checklist.assigneeId ?? undefined,
+                  assigneeName: payload.checklist.assigneeNickname ?? undefined,
+                  displayOrder: payload.checklist.displayOrder,
+                  durationMs: payload.checklist.totalTimeMinutes * 60 * 1000,
+                }
+              : t
+          ),
+        };
+      });
+    };
+
+    const handleChecklistDeleted = (payload: ChecklistDeletedPayload) => {
+      if (payload.projectId !== project.id) return;
+      // 본인이 삭제한 이벤트는 무시 (이미 로컬에서 삭제됨)
+      if (payload.deletedByUserId === user.id) return;
+
+      setProject(prev => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          tasks: prev.tasks.filter(t => t.id !== payload.checklistId),
+        };
+      });
+    };
+
+    socketService.onChecklistCreated(handleChecklistCreated);
+    socketService.onChecklistUpdated(handleChecklistUpdated);
+    socketService.onChecklistDeleted(handleChecklistDeleted);
+
+    return () => {
+      socketService.off('checklist:created');
+      socketService.off('checklist:updated');
+      socketService.off('checklist:deleted');
+    };
+  }, [project, user]);
 
   // 타이머 상태 변화 감지 (타이머 정지 시 데이터 새로고침)
   const prevTimerRunningRef = React.useRef(isTimerRunning);

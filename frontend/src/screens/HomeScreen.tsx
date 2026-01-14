@@ -20,7 +20,8 @@ import MaterialDesignIcons from '@react-native-vector-icons/material-design-icon
 const Icon = MaterialDesignIcons;
 import { TotalTimeDisplay, TaskItem, ProjectCard, FloatingTimer, ProfileModal, FocusModeModal, CreateProjectModal, ArchiveReceipt } from '@components/index';
 import { api } from '@services/api';
-import { COLORS, FONT_SIZES, FONTS, FONT_WEIGHTS, SPACING, BORDER_RADIUS, formatTime, formatTimeShort } from '@constants/index';
+import socketService, { TaskAssignedPayload } from '@services/socket';
+import { COLORS, FONT_SIZES, FONTS, FONT_WEIGHTS, SPACING, BORDER_RADIUS, formatTime, formatTimeShort, IMAGE_BASE_URL } from '@constants/index';
 import type { RootStackParamList } from '@navigation/RootNavigator';
 import type { User, Project, Task, TimerState } from '../types';
 import { transformApiUser, transformProjectSummary, transformProjectDetail } from '../types';
@@ -92,7 +93,7 @@ interface ReceiptData {
 
 // 서버 Base URL (이미지 URL 생성용)
 const getImageBaseUrl = () => {
-  return 'http://172.10.5.61'; // 서버 IP
+  return IMAGE_BASE_URL;
 };
 
 export const HomeScreen: React.FC = () => {
@@ -342,6 +343,23 @@ export const HomeScreen: React.FC = () => {
       restartTimer();
     }
   }, [isTimerRunning, loadData, startTimer]);
+
+  // 실시간 Task 할당 이벤트 구독
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const handleTaskAssigned = (payload: TaskAssignedPayload) => {
+      console.log('[HomeScreen] Task assigned:', payload);
+      // 나에게 할당된 Task 알림 (loadData로 새로고침)
+      loadData();
+    };
+
+    socketService.onTaskAssigned(handleTaskAssigned);
+
+    return () => {
+      socketService.off('task:assigned');
+    };
+  }, [user?.id, loadData]);
 
   const onRefresh = async () => {
     setRefreshing(true);

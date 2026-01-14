@@ -376,9 +376,31 @@ export class ReceiptsService {
     });
 
     // 기존 영수증 정보 조회
-    const receipt = await this.prisma.dailyReceipt.findUnique({
+    let receipt = await this.prisma.dailyReceipt.findUnique({
       where: { userId_date: { userId, date } },
     });
+
+    // 자동 이미지 생성: 데이터는 있지만 이미지가 없는 경우
+    if (tasks.length > 0 && (!receipt || !receipt.imageUrl)) {
+      this.logger.log(`[getReceiptDetails] 자동 이미지 생성 시작: userId=${userId}, date=${dateStr}`);
+      try {
+        const generated = await this.generateImage(userId, dateStr);
+        return {
+          id: generated.id,
+          date: dateStr,
+          imageUrl: generated.imageUrl,
+          tasks,
+          totalTimeMs,
+          totalMinutes: generated.totalMinutes,
+          completedTasksCount: generated.completedTasksCount,
+          timeSlots,
+          createdAt: receipt?.createdAt || new Date(),
+        };
+      } catch (error) {
+        this.logger.warn(`[getReceiptDetails] 자동 이미지 생성 실패: ${error.message}`);
+        // 이미지 생성 실패 시 데이터만 반환
+      }
+    }
 
     return {
       id: receipt?.id,

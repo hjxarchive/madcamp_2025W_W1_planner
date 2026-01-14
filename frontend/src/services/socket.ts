@@ -81,6 +81,56 @@ export interface TimerErrorPayload {
   message: string;
 }
 
+// ========== 실시간 동기화 이벤트 페이로드 ==========
+
+export interface UserUpdatedPayload {
+  userId: string;
+  nickname: string;
+  profileEmoji?: string;
+}
+
+export interface ChecklistPayload {
+  id: string;
+  content: string;
+  isCompleted: boolean;
+  assigneeId: string | null;
+  assigneeNickname: string | null;
+  displayOrder: number;
+  totalTimeMinutes: number;
+}
+
+export interface ChecklistCreatedPayload {
+  projectId: string;
+  checklist: ChecklistPayload;
+  createdByUserId: string;
+}
+
+export interface ChecklistUpdatedPayload {
+  projectId: string;
+  checklist: ChecklistPayload;
+  updatedByUserId: string;
+}
+
+export interface ChecklistDeletedPayload {
+  projectId: string;
+  checklistId: string;
+  deletedByUserId: string;
+}
+
+export interface TaskAssignedPayload {
+  checklistId: string;
+  projectId: string;
+  projectTitle: string;
+  taskContent: string;
+  assignedByUserId: string;
+  assignedByNickname: string;
+}
+
+export interface ProjectTimeUpdatedPayload {
+  projectId: string;
+  totalTimeMs: number;
+}
+
 type EventCallback<T> = (data: T) => void;
 
 // 리스너 타입
@@ -302,6 +352,45 @@ class SocketService {
       'timer:member-started',
       'timer:member-stopped',
       'timer:error',
+    ];
+    events.forEach(event => this.off(event));
+  }
+
+  // ========== 실시간 동기화 이벤트 리스너 헬퍼 ==========
+
+  onUserUpdated(callback: EventCallback<UserUpdatedPayload>): void {
+    this.on('user:updated', callback);
+  }
+
+  onChecklistCreated(callback: EventCallback<ChecklistCreatedPayload>): void {
+    this.on('checklist:created', callback);
+  }
+
+  onChecklistUpdated(callback: EventCallback<ChecklistUpdatedPayload>): void {
+    this.on('checklist:updated', callback);
+  }
+
+  onChecklistDeleted(callback: EventCallback<ChecklistDeletedPayload>): void {
+    this.on('checklist:deleted', callback);
+  }
+
+  onTaskAssigned(callback: EventCallback<TaskAssignedPayload>): void {
+    this.on('task:assigned', callback);
+  }
+
+  onProjectTimeUpdated(callback: EventCallback<ProjectTimeUpdatedPayload>): void {
+    this.on('project:time-updated', callback);
+  }
+
+  // 모든 실시간 동기화 이벤트 리스너 해제
+  removeAllRealtimeListeners(): void {
+    const events = [
+      'user:updated',
+      'checklist:created',
+      'checklist:updated',
+      'checklist:deleted',
+      'task:assigned',
+      'project:time-updated',
     ];
     events.forEach(event => this.off(event));
   }

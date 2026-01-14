@@ -22,7 +22,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import MaterialDesignIcons from '@react-native-vector-icons/material-design-icons';
 const Icon = MaterialDesignIcons;
-import { COLORS, FONT_SIZES, SPACING, BORDER_RADIUS, formatTime } from '@constants/index';
+import { COLORS, FONT_SIZES, SPACING, BORDER_RADIUS, formatTime, IMAGE_BASE_URL } from '@constants/index';
 import { api } from '@services/api';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -31,9 +31,7 @@ const CARD_GAP = 16;
 
 // 서버 Base URL (이미지 URL 생성용)
 const getImageBaseUrl = () => {
-  // API_BASE_URL에서 /api 부분 제거
-  const baseUrl = 'http://172.10.5.61'; // 서버 IP
-  return baseUrl;
+  return IMAGE_BASE_URL;
 };
 
 interface ReceiptCardData {

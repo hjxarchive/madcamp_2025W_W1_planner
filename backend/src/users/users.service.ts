@@ -2,13 +2,20 @@ import {
   Injectable,
   NotFoundException,
   ConflictException,
+  Inject,
+  forwardRef,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateUserDto, UpdateUserDto } from './dto';
+import { TimerGateway } from '../timer/timer.gateway';
 
 @Injectable()
 export class UsersService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    @Inject(forwardRef(() => TimerGateway))
+    private timerGateway: TimerGateway,
+  ) {}
 
   async findByFirebaseUid(firebaseUid: string) {
     return this.prisma.user.findUnique({
@@ -85,10 +92,18 @@ export class UsersService {
       }
     }
 
-    return this.prisma.user.update({
+    const updatedUser = await this.prisma.user.update({
       where: { id: user.id },
       data: dto,
     });
+
+    // 실시간 브로드캐스트: 사용자 정보 변경
+    this.timerGateway.broadcastUserUpdate(updatedUser.id, {
+      nickname: updatedUser.nickname,
+      profileEmoji: updatedUser.profileEmoji || undefined,
+    });
+
+    return updatedUser;
   }
 
   async checkNicknameAvailability(firebaseUid: string, nickname: string) {

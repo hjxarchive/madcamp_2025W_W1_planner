@@ -406,4 +406,101 @@ export class TimerGateway implements OnGatewayConnection, OnGatewayDisconnect {
       this.tickIntervals.delete(userId);
     }
   }
+
+  // ========== 실시간 브로드캐스트 메서드 ==========
+
+  /**
+   * 사용자 정보 변경 브로드캐스트 (닉네임 변경 등)
+   */
+  broadcastUserUpdate(userId: string, userData: { nickname: string; profileEmoji?: string }) {
+    this.server.emit('user:updated', { userId, ...userData });
+  }
+
+  /**
+   * 체크리스트(Task) 생성 브로드캐스트
+   */
+  broadcastChecklistCreated(
+    projectId: string,
+    checklist: {
+      id: string;
+      content: string;
+      isCompleted: boolean;
+      assigneeId: string | null;
+      assigneeNickname: string | null;
+      displayOrder: number;
+      totalTimeMinutes: number;
+    },
+    createdByUserId: string,
+  ) {
+    this.server.to(`project:${projectId}`).emit('checklist:created', {
+      projectId,
+      checklist,
+      createdByUserId,
+    });
+  }
+
+  /**
+   * 체크리스트(Task) 수정 브로드캐스트
+   */
+  broadcastChecklistUpdated(
+    projectId: string,
+    checklist: {
+      id: string;
+      content: string;
+      isCompleted: boolean;
+      assigneeId: string | null;
+      assigneeNickname: string | null;
+      displayOrder: number;
+      totalTimeMinutes: number;
+    },
+    updatedByUserId: string,
+  ) {
+    this.server.to(`project:${projectId}`).emit('checklist:updated', {
+      projectId,
+      checklist,
+      updatedByUserId,
+    });
+  }
+
+  /**
+   * 체크리스트(Task) 삭제 브로드캐스트
+   */
+  broadcastChecklistDeleted(
+    projectId: string,
+    checklistId: string,
+    deletedByUserId: string,
+  ) {
+    this.server.to(`project:${projectId}`).emit('checklist:deleted', {
+      projectId,
+      checklistId,
+      deletedByUserId,
+    });
+  }
+
+  /**
+   * Task 할당 알림 (특정 사용자에게만)
+   */
+  notifyTaskAssigned(
+    targetUserId: string,
+    payload: {
+      checklistId: string;
+      projectId: string;
+      projectTitle: string;
+      taskContent: string;
+      assignedByUserId: string;
+      assignedByNickname: string;
+    },
+  ) {
+    this.server.to(`user:${targetUserId}`).emit('task:assigned', payload);
+  }
+
+  /**
+   * 프로젝트 총 시간 업데이트 브로드캐스트
+   */
+  broadcastProjectTimeUpdated(projectId: string, totalTimeMs: number) {
+    this.server.to(`project:${projectId}`).emit('project:time-updated', {
+      projectId,
+      totalTimeMs,
+    });
+  }
 }

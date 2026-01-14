@@ -7,6 +7,7 @@ import { Platform } from 'react-native';
 const SERVER_IP = '172.10.5.61';
 
 export const API_BASE_URL = `http://${SERVER_IP}/api`;  // Nginx 80 포트 (포트 생략)
+export const IMAGE_BASE_URL = `http://${SERVER_IP}`;    // 이미지 URL용 (포트 없이)
 // WebSocket은 socket.ts에서 API_BASE_URL 기반으로 자동 생성
 
 // App Configuration
