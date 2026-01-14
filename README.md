@@ -3,9 +3,6 @@
 
 개인의 몰입과 팀의 협업을 연결하는 스마트 시간 관리 및 프로젝트 기록 시스템
 
-
-![License](https://img.shields.io/badge/license-MIT-blue.svg)
-![Status](https://img.shields.io/badge/status-in%20development-yellow)
 ![React Native](https://img.shields.io/badge/React_Native-61DAFB?style=flat&logo=react&logoColor=black)
 ![NestJS](https://img.shields.io/badge/NestJS-E0234E?style=flat&logo=nestjs&logoColor=white)
 
