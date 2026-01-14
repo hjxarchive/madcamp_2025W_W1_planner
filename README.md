@@ -95,7 +95,7 @@
 | 구분 | 기술 | 용도 |
 |------|------|------|
 | Server | KCloud (Ubuntu) | 호스팅 |
-| Web Server | Nginx | 리버스 프록시, SSL |
+| Web Server | Nginx | 리버스 프록시 |
 | Process Manager | PM2 | Node.js 프로세스 관리 |
 
 ### 통신
