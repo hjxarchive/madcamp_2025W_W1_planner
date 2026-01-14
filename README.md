@@ -1,6 +1,7 @@
 # 🕒 Momento
 > **"계획적인 당신을 위한, 성장을 증명하는 가장 완벽한 플래너."**
-> 개인의 몰입과 팀의 유기적인 협업을 데이터로 기록하고 시각화하는 스마트 시간 관리 시스템
+
+개인의 몰입과 팀의 유기적인 협업을 데이터로 기록하고 시각화하는 스마트 시간 관리 시스템
 
 ![React Native](https://img.shields.io/badge/React_Native-61DAFB?style=flat&logo=react&logoColor=black)
 ![NestJS](https://img.shields.io/badge/NestJS-E0234E?style=flat&logo=nestjs&logoColor=white)
