@@ -3,6 +3,9 @@ import { PrismaService } from '../prisma/prisma.service';
 import { ReceiptImageService } from './receipt-image.service';
 import { CreateReceiptDto } from './dto';
 
+// KST (Korea Standard Time) 오프셋: UTC+9
+const KST_OFFSET_HOURS = 9;
+
 @Injectable()
 export class ReceiptsService {
   private readonly logger = new Logger(ReceiptsService.name);
@@ -11,6 +14,18 @@ export class ReceiptsService {
     private prisma: PrismaService,
     private receiptImageService: ReceiptImageService,
   ) {}
+
+  /**
+   * UTC Date를 KST 시간/분으로 변환
+   */
+  private getKSTHoursAndMinutes(date: Date): { hours: number; minutes: number } {
+    // UTC 시간에 9시간을 더해서 KST로 변환
+    const kstTime = new Date(date.getTime() + KST_OFFSET_HOURS * 60 * 60 * 1000);
+    return {
+      hours: kstTime.getUTCHours(),
+      minutes: kstTime.getUTCMinutes(),
+    };
+  }
 
   /**
    * 날짜 문자열(YYYY-MM-DD)을 로컬 시간대로 파싱하여 시작/끝 시각 반환
@@ -230,15 +245,17 @@ export class ReceiptsService {
     const totalTimeMs = tasks.reduce((sum, t) => sum + t.durationMs, 0);
     const totalMinutes = Math.floor(totalTimeMs / 60000);
 
-    // 144 슬롯 (10분 단위) 타임라인 생성
+    // 144 슬롯 (10분 단위) 타임라인 생성 - KST 기준
     const timeSlots: boolean[] = new Array(144).fill(false);
     timeLogs.forEach((log) => {
       if (!log.endedAt) return;
+      const startKST = this.getKSTHoursAndMinutes(log.startedAt);
+      const endKST = this.getKSTHoursAndMinutes(log.endedAt);
       const startSlot = Math.floor(
-        (log.startedAt.getHours() * 60 + log.startedAt.getMinutes()) / 10,
+        (startKST.hours * 60 + startKST.minutes) / 10,
       );
       const endSlot = Math.floor(
-        (log.endedAt.getHours() * 60 + log.endedAt.getMinutes()) / 10,
+        (endKST.hours * 60 + endKST.minutes) / 10,
       );
       for (let i = startSlot; i <= endSlot && i < 144; i++) {
         timeSlots[i] = true;
@@ -360,15 +377,17 @@ export class ReceiptsService {
     const tasks = Array.from(taskMap.values());
     const totalTimeMs = tasks.reduce((sum, t) => sum + t.durationMs, 0);
 
-    // 144 슬롯 (10분 단위) 타임라인 생성
+    // 144 슬롯 (10분 단위) 타임라인 생성 - KST 기준
     const timeSlots: boolean[] = new Array(144).fill(false);
     timeLogs.forEach((log) => {
       if (!log.endedAt) return;
+      const startKST = this.getKSTHoursAndMinutes(log.startedAt);
+      const endKST = this.getKSTHoursAndMinutes(log.endedAt);
       const startSlot = Math.floor(
-        (log.startedAt.getHours() * 60 + log.startedAt.getMinutes()) / 10,
+        (startKST.hours * 60 + startKST.minutes) / 10,
       );
       const endSlot = Math.floor(
-        (log.endedAt.getHours() * 60 + log.endedAt.getMinutes()) / 10,
+        (endKST.hours * 60 + endKST.minutes) / 10,
       );
       for (let i = startSlot; i <= endSlot && i < 144; i++) {
         timeSlots[i] = true;
